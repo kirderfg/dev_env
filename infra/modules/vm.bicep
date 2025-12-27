@@ -35,6 +35,7 @@ packages:
   - htop
   - jq
   - unzip
+  - python3-pip
 
 runcmd:
   - install -m 0755 -d /etc/apt/keyrings
@@ -43,6 +44,8 @@ runcmd:
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+  - apt-get install -y nodejs
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
