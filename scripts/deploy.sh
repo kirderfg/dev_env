@@ -99,3 +99,7 @@ fi
 
 echo ""
 echo "VM ready! Connect with: ./scripts/ssh-connect.sh"
+echo ""
+echo "=== First time setup on VM ==="
+echo "1. gh auth login        # Login to GitHub CLI"
+echo "2. gh auth setup-git    # Configure git to use gh for auth"

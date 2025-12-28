@@ -37,16 +37,25 @@ packages:
   - unzip
 
 runcmd:
+  # GitHub CLI (https://github.com/cli/cli/blob/trunk/docs/install_linux.md)
+  - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+  - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
   # Docker official install (https://docs.docker.com/engine/install/ubuntu/)
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   - chmod a+r /etc/apt/keyrings/docker.asc
   - bash -c 'echo -e "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: $(. /etc/os-release && echo ${UBUNTU_CODENAME:-$VERSION_CODENAME})\nComponents: stable\nSigned-By: /etc/apt/keyrings/docker.asc" > /etc/apt/sources.list.d/docker.sources'
   - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
+  # Git config
+  - su - azureuser -c 'git config --global user.name "Fredrik Gustavsson"'
+  - su - azureuser -c 'git config --global user.email "fredrik@thegustavssons.se"'
+  - su - azureuser -c 'git config --global init.defaultBranch main'
+  - su - azureuser -c 'git config --global pull.rebase true'
   # Shell-bootstrap for nice prompt (runs as azureuser)
   - su - azureuser -c 'curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash'
   - echo "VM setup complete" > /var/log/cloud-init-complete.log
