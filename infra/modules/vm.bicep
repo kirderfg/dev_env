@@ -20,7 +20,7 @@ param nicId string
 @description('OS disk size in GB')
 param osDiskSizeGB int = 64
 
-// Cloud-init configuration for Docker and dev tools
+// Cloud-init configuration - minimal VM with Docker + shell-bootstrap
 var cloudInitConfig = '''
 #cloud-config
 package_update: true
@@ -35,7 +35,6 @@ packages:
   - htop
   - jq
   - unzip
-  - python3-pip
 
 runcmd:
   # Docker official install (https://docs.docker.com/engine/install/ubuntu/)
@@ -45,12 +44,12 @@ runcmd:
   - bash -c 'echo -e "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: $(. /etc/os-release && echo ${UBUNTU_CODENAME:-$VERSION_CODENAME})\nComponents: stable\nSigned-By: /etc/apt/keyrings/docker.asc" > /etc/apt/sources.list.d/docker.sources'
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  - curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-  - apt-get install -y nodejs
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
-  - echo "Docker and dev tools installed successfully" > /var/log/cloud-init-complete.log
+  # Shell-bootstrap for nice prompt (runs as azureuser)
+  - su - azureuser -c 'curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash'
+  - echo "VM setup complete" > /var/log/cloud-init-complete.log
 '''
 
 // Virtual Machine with Spot configuration
