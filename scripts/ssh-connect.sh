@@ -38,7 +38,9 @@ trap restore_title EXIT
 set_tab_title "Dev VM"
 
 echo "Connecting to ${VM_IP}..."
-ssh -i "${SSH_KEY_PATH}" -o StrictHostKeyChecking=accept-new \
+ssh -i "${SSH_KEY_PATH}" \
+    -o StrictHostKeyChecking=accept-new \
+    -o LogLevel=ERROR \
     -L 3000:localhost:3000 \
     -L 5000:localhost:5000 \
     -L 5173:localhost:5173 \
