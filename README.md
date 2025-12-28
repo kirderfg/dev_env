@@ -60,7 +60,6 @@ If you prefer to run steps individually:
 | `scripts/start-vm.sh` | Start a deallocated VM |
 | `scripts/stop-vm.sh` | Stop and deallocate VM (saves compute costs) |
 | `scripts/sync-secrets.sh` | Sync 1Password service account token to VM |
-| `scripts/op-secrets.sh` | Helper script for loading secrets via 1Password |
 | `scripts/devpod-setup.sh` | Configure DevPod SSH provider for this VM |
 
 ## DevPod Integration
@@ -270,17 +269,13 @@ Secrets are managed via **1Password CLI** - they are fetched on-demand and never
 
 1. **Create a 1Password Service Account** at: 1Password → Settings → Developer → Service Accounts
 2. **Grant access** to your `DEV_CLI` vault (or create one)
-3. **Save the token** locally:
+3. **Run shell-bootstrap locally** - it will prompt for your token:
    ```bash
-   mkdir -p ~/.config/dev_env
-   echo 'your-service-account-token' > ~/.config/dev_env/op_token
-   chmod 600 ~/.config/dev_env/op_token
+   curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/install.sh
+   bash /tmp/install.sh
    ```
-
-4. **Run setup** - the token will be synced to the VM:
+4. **Sync token to VM** (if VM already exists):
    ```bash
-   ./setup.sh
-   # Or if VM already exists:
    ./scripts/sync-secrets.sh
    ```
 
@@ -393,7 +388,6 @@ dev_env/
 │   ├── start-vm.sh             # Start deallocated VM
 │   ├── stop-vm.sh              # Stop and deallocate VM
 │   ├── sync-secrets.sh         # Sync 1Password token to VM
-│   ├── op-secrets.sh           # Helper for loading secrets via op CLI
 │   └── devpod-setup.sh         # Configure DevPod SSH provider
 ├── templates/
 │   └── devcontainer/           # DevContainer template

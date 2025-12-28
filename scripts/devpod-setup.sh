@@ -82,52 +82,23 @@ if ! devpod provider list 2>/dev/null | grep -q "ssh"; then
 fi
 echo "SSH provider ready."
 
-# Configure 1Password Service Account Token
+# Check for 1Password token (set up via shell-bootstrap)
 echo ""
 echo "=== 1Password Configuration ==="
-
-# Check if token already configured in DevPod
-EXISTING_TOKEN=$(devpod provider options ssh 2>/dev/null | grep -i "OP_SERVICE_ACCOUNT_TOKEN" | awk '{print $2}' || true)
-
-if [ -n "$EXISTING_TOKEN" ] && [ "$EXISTING_TOKEN" != "-" ]; then
-    echo "1Password token already configured in DevPod."
+if [ -f "$OP_TOKEN_FILE" ]; then
+    echo "1Password token found at: $OP_TOKEN_FILE"
+    echo "Secrets will be available in DevPod workspaces."
 else
-    # Check if we have a saved token
-    if [ -f "$OP_TOKEN_FILE" ]; then
-        OP_TOKEN=$(cat "$OP_TOKEN_FILE")
-        echo "Found saved 1Password token."
-    else
-        echo ""
-        echo "1Password Service Account Token is required for secure secrets management."
-        echo "This token will be passed to DevPod workspaces to fetch secrets on-demand."
-        echo ""
-        echo "Get your token from: 1Password → Settings → Developer → Service Accounts"
-        echo ""
-        read -sp "Enter 1Password Service Account Token (hidden): " OP_TOKEN
-        echo ""
-
-        if [ -n "$OP_TOKEN" ]; then
-            # Save token locally (with secure permissions)
-            mkdir -p "$(dirname "$OP_TOKEN_FILE")"
-            echo "$OP_TOKEN" > "$OP_TOKEN_FILE"
-            chmod 600 "$OP_TOKEN_FILE"
-            echo "Token saved to ${OP_TOKEN_FILE}"
-        fi
-    fi
-
-    if [ -n "$OP_TOKEN" ]; then
-        # Configure DevPod to pass the token as environment variable
-        # This injects OP_SERVICE_ACCOUNT_TOKEN into workspaces
-        devpod provider update ssh -o INJECT_DOCKER_CREDENTIALS=false 2>/dev/null || true
-        echo "1Password token configured."
-        echo ""
-        echo "To pass token to workspaces, use:"
-        echo "  devpod up <repo> --provider ssh -o HOST=${SSH_HOST} --env OP_SERVICE_ACCOUNT_TOKEN=\$(cat ${OP_TOKEN_FILE})"
-    else
-        echo "No token provided. Secrets will not be available in workspaces."
-        echo "You can configure it later with:"
-        echo "  echo 'your-token' > ${OP_TOKEN_FILE} && chmod 600 ${OP_TOKEN_FILE}"
-    fi
+    echo "1Password token not found."
+    echo ""
+    echo "Run shell-bootstrap to set up 1Password:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/install.sh"
+    echo "  bash /tmp/install.sh"
+    echo ""
+    echo "Or manually save your Service Account Token:"
+    echo "  mkdir -p ~/.config/dev_env"
+    echo "  echo 'your-token' > ~/.config/dev_env/op_token"
+    echo "  chmod 600 ~/.config/dev_env/op_token"
 fi
 
 echo ""

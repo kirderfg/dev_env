@@ -13,48 +13,12 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[Setup]${NC} $1"; }
 warn() { echo -e "${YELLOW}[Setup]${NC} $1"; }
 
-# Install 1Password CLI for secure secret management
-if ! command -v op &> /dev/null; then
-    log "Installing 1Password CLI..."
-    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | sudo gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main" | sudo tee /etc/apt/sources.list.d/1password.list
-    sudo apt-get update && sudo apt-get install -y 1password-cli
-fi
-
-# Verify 1Password service account is configured and load secrets
-if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
-    if op whoami &> /dev/null; then
-        log "1Password CLI authenticated via service account"
-
-        # Load secrets from 1Password for shell-bootstrap
-        log "Loading secrets from 1Password..."
-        export ATUIN_USERNAME=$(op read "op://DEV_CLI/Atuin/username" 2>/dev/null) || true
-        export ATUIN_PASSWORD=$(op read "op://DEV_CLI/Atuin/password" 2>/dev/null) || true
-        export ATUIN_KEY=$(op read "op://DEV_CLI/Atuin/key" 2>/dev/null) || true
-        export PET_SNIPPETS_TOKEN=$(op read "op://DEV_CLI/Pet/PAT" 2>/dev/null) || true
-        export OPENAI_API_KEY=$(op read "op://DEV_CLI/OpenAI/api_key" 2>/dev/null) || true
-        export GITHUB_TOKEN=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null) || true
-
-        if [ -n "$ATUIN_USERNAME" ]; then
-            log "Loaded Atuin credentials"
-        fi
-        if [ -n "$PET_SNIPPETS_TOKEN" ]; then
-            log "Loaded Pet snippets token"
-        fi
-    else
-        warn "OP_SERVICE_ACCOUNT_TOKEN set but authentication failed"
-    fi
-else
-    warn "OP_SERVICE_ACCOUNT_TOKEN not set - secrets won't be available"
-    warn "Set it in DevPod: devpod provider update ssh -o OP_SERVICE_ACCOUNT_TOKEN=<token>"
-fi
-
 # Run shell-bootstrap for terminal tools (zsh, starship, atuin, yazi, glow, etc.)
+# shell-bootstrap handles: op CLI install, 1Password setup, secrets loading
 # NOTE: Must download first then run - piping to bash breaks interactive prompts
-# Secrets are already in environment from 1Password above
 log "Running shell-bootstrap..."
 curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh
-bash /tmp/shell-bootstrap-install.sh || warn "shell-bootstrap failed (non-fatal)"
+SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh || warn "shell-bootstrap failed (non-fatal)"
 rm -f /tmp/shell-bootstrap-install.sh
 
 # Install security scanning tools
