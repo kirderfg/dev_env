@@ -17,8 +17,12 @@ A best-practices devcontainer configuration with security scanning, pre-commit h
 - Node.js 20
 - Docker-in-Docker with Compose v2
 
-### Developer Tools
-- GitHub CLI (`gh`)
+### Developer Tools (via shell-bootstrap)
+- Zsh with vi-mode, Starship prompt
+- Atuin (shell history sync)
+- Yazi (file manager), Glow (markdown)
+- Pet (snippets), Zoxide (smart cd)
+- GitHub CLI (`gh`), Delta (git diff)
 - Pre-commit hooks framework
 - Black, Ruff, MyPy (Python)
 - ESLint, Prettier (JavaScript)

@@ -13,6 +13,10 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[Setup]${NC} $1"; }
 warn() { echo -e "${YELLOW}[Setup]${NC} $1"; }
 
+# Run shell-bootstrap for terminal tools (zsh, starship, atuin, yazi, glow, etc.)
+log "Running shell-bootstrap..."
+curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash || warn "shell-bootstrap failed (non-fatal)"
+
 # Install security scanning tools
 log "Installing security tools..."
 pip install --quiet safety bandit
