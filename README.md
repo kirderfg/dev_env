@@ -274,6 +274,24 @@ The VM comes with:
 - GitHub CLI (`gh`)
 - Git, curl, vim, tmux, htop, jq, unzip
 
+## DevContainer Template
+
+The `templates/devcontainer/` folder contains a best-practices template for Python + Node projects:
+
+```bash
+# Copy to your project
+cp -r templates/devcontainer/.devcontainer your-project/
+cp templates/devcontainer/.pre-commit-config.yaml your-project/
+```
+
+**Includes:**
+- Python 3.12, Node 20, Docker-in-Docker
+- GitHub CLI, pre-commit hooks
+- Security scanning: Gitleaks, Trivy, Bandit, Safety
+- VS Code extensions: Python, ESLint, Prettier, Snyk, GitLens
+
+See [templates/devcontainer/README.md](templates/devcontainer/README.md) for details.
+
 ## File Structure
 
 ```
@@ -292,6 +310,8 @@ dev_env/
 │   ├── stop-vm.sh              # Stop and deallocate VM
 │   ├── sync-secrets.sh         # Sync secrets to VM
 │   └── devpod-setup.sh         # Configure DevPod SSH provider
+├── templates/
+│   └── devcontainer/           # DevContainer template
 ├── .env                        # VM config (auto-generated)
 └── README.md
 ```
