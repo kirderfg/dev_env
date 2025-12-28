@@ -88,4 +88,14 @@ echo "SSH Command: ssh -i ${SSH_KEY_PATH} ${SSH_USER}@${PUBLIC_IP}"
 echo ""
 echo "Quick connect: ./scripts/ssh-connect.sh"
 echo ""
-echo "Note: It may take a few minutes for Docker to be installed."
+echo "Waiting for cloud-init to complete..."
+sleep 30
+
+# Sync secrets if available locally
+if [ -f "${HOME}/.config/shell-bootstrap/secrets.env" ] || command -v atuin &>/dev/null; then
+    echo ""
+    "${SCRIPT_DIR}/sync-secrets.sh" || echo "Warning: Secret sync failed (VM may still be initializing)"
+fi
+
+echo ""
+echo "VM ready! Connect with: ./scripts/ssh-connect.sh"
