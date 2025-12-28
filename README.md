@@ -265,7 +265,7 @@ The disk is preserved, so all your data remains intact.
 
 Secrets are managed via **1Password CLI** - they are fetched on-demand and never stored as plaintext files.
 
-### Setup
+### Initial Setup
 
 1. **Create a 1Password Service Account** at: 1Password → Settings → Developer → Service Accounts
 2. **Grant access** to your `DEV_CLI` vault (or create one)
@@ -273,10 +273,6 @@ Secrets are managed via **1Password CLI** - they are fetched on-demand and never
    ```bash
    curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/install.sh
    bash /tmp/install.sh
-   ```
-4. **Sync token to VM** (if VM already exists):
-   ```bash
-   ./scripts/sync-secrets.sh
    ```
 
 ### Required 1Password Items
@@ -290,18 +286,73 @@ Create these items in your `DEV_CLI` vault:
 | `Atuin` | `key` | Atuin encryption key (from `atuin key`) |
 | `Pet` | `PAT` | Pet snippets GitHub token |
 | `OpenAI` | `api_key` | OpenAI API key |
-| `GitHub` | `PAT` | GitHub Personal Access Token (fine-grained) |
+| `GitHub` | `PAT` | GitHub Personal Access Token (for gh CLI + git auth) |
 
-### Usage in DevPod
+### Token Flow
+
+The 1Password Service Account Token must be provided to each environment:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           TOKEN FLOW OVERVIEW                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  LOCAL MACHINE                                                              │
+│  └── ~/.config/dev_env/op_token  ◄── Created by shell-bootstrap            │
+│            │                                                                │
+│            ├──────────────────────────────────────────┐                     │
+│            │                                          │                     │
+│            ▼                                          ▼                     │
+│  ┌─────────────────────┐                ┌──────────────────────────────┐   │
+│  │     AZURE VM        │                │     DEVPOD CONTAINER         │   │
+│  │                     │                │                              │   │
+│  │  sync-secrets.sh    │                │  --env OP_SERVICE_ACCOUNT_   │   │
+│  │  copies token to:   │                │  TOKEN=$(...) passes token   │   │
+│  │  ~/.config/dev_env/ │                │  to container environment    │   │
+│  │  op_token           │                │                              │   │
+│  │                     │                │  shell-bootstrap picks up    │   │
+│  │  Token persists on  │                │  token from env var and      │   │
+│  │  VM disk (survives  │                │  configures everything       │   │
+│  │  restarts)          │                │                              │   │
+│  └─────────────────────┘                └──────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### For Azure VM
+
+After deploying the VM, sync your token once:
+
+```bash
+./scripts/sync-secrets.sh
+```
+
+The token is saved to the VM and persists across restarts. shell-bootstrap loads it on every shell start.
+
+#### For DevPod Containers
 
 Pass the token when creating workspaces:
 
 ```bash
+# Create workspace with secrets
 devpod up github.com/your/repo --provider ssh -o HOST=dev-vm \
+  --env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token)
+
+# Or from local folder
+devpod up ./my-project --provider ssh -o HOST=dev-vm \
   --env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token)
 ```
 
-Secrets are automatically loaded in shell sessions via `op-secrets.sh`.
+**Tip:** Use `pet` snippets (Ctrl+S) for quick access to these commands.
+
+### What Gets Configured
+
+When the token is available, shell-bootstrap automatically:
+- Authenticates GitHub CLI (`gh auth login`)
+- Configures git credential helper (HTTPS auth via `gh`)
+- Logs into Atuin (shell history sync)
+- Syncs pet snippets from private repo
+- Exports `OPENAI_API_KEY`, `GITHUB_TOKEN` to environment
 
 ### Manual Secret Access
 
@@ -313,7 +364,7 @@ op read 'op://DEV_CLI/OpenAI/api_key'
 op run --env-file=.env.tpl -- ./my-script.sh
 ```
 
-### How It Works
+### Architecture
 
 ```
 ┌─────────────────────┐
@@ -330,6 +381,8 @@ op run --env-file=.env.tpl -- ./my-script.sh
 │  │  Shell init:                          │  │
 │  │    source ~/.config/dev_env/init.sh   │  │
 │  │    → exports OPENAI_API_KEY, etc.     │  │
+│  │    → authenticates gh CLI             │  │
+│  │    → configures git credentials       │  │
 │  │                                       │  │
 │  │  ✓ Secrets fetched on-demand          │  │
 │  │  ✓ Only in memory, never on disk      │  │
