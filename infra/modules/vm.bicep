@@ -36,16 +36,34 @@ packages:
   - jq
   - unzip
 
+write_files:
+  - path: /etc/apt/sources.list.d/github-cli.list
+    content: |
+      deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
+  - path: /tmp/setup-docker-repo.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      . /etc/os-release
+      CODENAME="${UBUNTU_CODENAME:-$VERSION_CODENAME}"
+      cat > /etc/apt/sources.list.d/docker.sources << EOF
+      Types: deb
+      URIs: https://download.docker.com/linux/ubuntu
+      Suites: $CODENAME
+      Components: stable
+      Signed-By: /etc/apt/keyrings/docker.asc
+      EOF
+
 runcmd:
-  # GitHub CLI (https://github.com/cli/cli/blob/trunk/docs/install_linux.md)
+  # GitHub CLI keyring
   - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
   - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-  # Docker official install (https://docs.docker.com/engine/install/ubuntu/)
+  # Docker keyring and repo
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   - chmod a+r /etc/apt/keyrings/docker.asc
-  - bash -c 'echo -e "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: $(. /etc/os-release && echo ${UBUNTU_CODENAME:-$VERSION_CODENAME})\nComponents: stable\nSigned-By: /etc/apt/keyrings/docker.asc" > /etc/apt/sources.list.d/docker.sources'
+  - /tmp/setup-docker-repo.sh
+  # Install packages
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh
   - systemctl enable docker

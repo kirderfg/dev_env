@@ -88,8 +88,42 @@ echo "SSH Command: ssh -i ${SSH_KEY_PATH} ${SSH_USER}@${PUBLIC_IP}"
 echo ""
 echo "Quick connect: ./scripts/ssh-connect.sh"
 echo ""
+
+# Wait for cloud-init and check for errors
 echo "Waiting for cloud-init to complete..."
-sleep 30
+ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${PUBLIC_IP}" 2>/dev/null || true
+SSH_CMD="ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ${SSH_USER}@${PUBLIC_IP}"
+
+# Wait for SSH to become available
+for i in {1..30}; do
+    if $SSH_CMD "exit 0" 2>/dev/null; then
+        break
+    fi
+    echo -n "."
+    sleep 5
+done
+echo ""
+
+# Wait for cloud-init to finish
+echo "Waiting for cloud-init..."
+$SSH_CMD "cloud-init status --wait" 2>/dev/null || true
+
+# Check for errors
+echo ""
+echo "=== Cloud-init Status ==="
+INIT_ERRORS=$($SSH_CMD "grep -i 'error\|failed\|fatal' /var/log/cloud-init-output.log 2>/dev/null | grep -v 'INFO\|DEBUG' | head -10" 2>/dev/null || true)
+INIT_COMPLETE=$($SSH_CMD "cat /var/log/cloud-init-complete.log 2>/dev/null" || true)
+
+if [ -n "$INIT_COMPLETE" ]; then
+    echo "Cloud-init: SUCCESS"
+else
+    echo "Cloud-init: WARNING - setup may not have completed"
+    if [ -n "$INIT_ERRORS" ]; then
+        echo ""
+        echo "Errors found in cloud-init log:"
+        echo "$INIT_ERRORS"
+    fi
+fi
 
 # Sync secrets if available locally
 if [ -f "${HOME}/.config/shell-bootstrap/secrets.env" ] || command -v atuin &>/dev/null; then
