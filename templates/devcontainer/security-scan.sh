@@ -88,7 +88,22 @@ if [ -f "package.json" ]; then
     fi
 fi
 
-# 5. Container scanning (full mode only)
+# 5. Snyk scanning (if authenticated)
+if command -v snyk &> /dev/null; then
+    if snyk auth check &>/dev/null; then
+        log "Running Snyk scan..."
+        if snyk test --severity-threshold=high 2>/dev/null; then
+            pass "No high/critical Snyk issues"
+        else
+            warn "Snyk found issues. Run: snyk test"
+            ((ISSUES++))
+        fi
+    else
+        warn "Snyk not authenticated. Run: snyk auth"
+    fi
+fi
+
+# 6. Container scanning (full mode only)
 if [ "$MODE" = "full" ]; then
     if [ -f "Dockerfile" ] || [ -f "docker/Dockerfile" ]; then
         log "Scanning container image..."

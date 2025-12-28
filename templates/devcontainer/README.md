@@ -2,6 +2,14 @@
 
 A best-practices devcontainer configuration with security scanning, pre-commit hooks, and modern tooling.
 
+## Stack
+
+| Layer | Tool | Port |
+|-------|------|------|
+| API | FastAPI | 8000 |
+| Frontend | Node/Vite | 3000 |
+| Container | Docker-in-Docker | - |
+
 ## What's Included
 
 ### Languages & Runtimes
@@ -22,7 +30,8 @@ A best-practices devcontainer configuration with security scanning, pre-commit h
 - **Bandit** - Python security linter
 - **Safety** - Python dependency vulnerability checker
 - **Hadolint** - Dockerfile linter
-- **Snyk** - VS Code extension for real-time scanning
+- **Snyk CLI** - Dependency & container scanning (run `snyk auth` to setup)
+- **Snyk VS Code** - Real-time scanning in editor
 
 ## Quick Start
 
@@ -72,6 +81,21 @@ Every commit is automatically checked for:
 ./security-scan.sh full
 ```
 
+### Snyk CLI
+```bash
+# Authenticate (one-time)
+snyk auth
+
+# Test dependencies
+snyk test
+
+# Test container image
+snyk container test your-image:tag
+
+# Monitor (adds to Snyk dashboard)
+snyk monitor
+```
+
 ### CI/CD Integration
 Add to your GitHub Actions workflow:
 ```yaml
@@ -80,6 +104,11 @@ Add to your GitHub Actions workflow:
     pip install safety bandit
     safety check
     bandit -r src/
+
+- name: Snyk Scan
+  uses: snyk/actions/python@master
+  env:
+    SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
 - name: Container Scan
   uses: aquasecurity/trivy-action@master

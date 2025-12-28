@@ -30,6 +30,13 @@ if ! command -v trivy &> /dev/null; then
     curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
 fi
 
+# Install Snyk CLI
+if ! command -v snyk &> /dev/null; then
+    log "Installing Snyk CLI..."
+    npm install -g snyk
+    warn "Run 'snyk auth' to authenticate with Snyk"
+fi
+
 # Install Python dependencies if pyproject.toml exists
 if [ -f "pyproject.toml" ]; then
     log "Installing Python dependencies..."
