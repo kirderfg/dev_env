@@ -25,7 +25,7 @@ NEW_IP=$(az vm show \
     --name "${VM_NAME}" \
     --show-details \
     --query publicIps \
-    --output tsv)
+    --output tsv | tr -d '\r')
 
 # Update .env if IP changed
 if [ "${NEW_IP}" != "${VM_IP}" ]; then

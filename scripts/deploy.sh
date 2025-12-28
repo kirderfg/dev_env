@@ -67,7 +67,7 @@ PUBLIC_IP=$(az vm show \
     --name "${VM_NAME}" \
     --show-details \
     --query publicIps \
-    --output tsv)
+    --output tsv | tr -d '\r')
 
 # Write config to .env file
 cat > "${ENV_FILE}" << EOF
