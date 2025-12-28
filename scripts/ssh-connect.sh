@@ -23,6 +23,20 @@ if [ ! -f "${SSH_KEY_PATH}" ]; then
     exit 1
 fi
 
+# Set Windows Terminal tab title
+set_tab_title() {
+    printf '\033]0;%s\007' "$1"
+}
+
+# Restore title on exit (trap handles Ctrl+C and normal exit)
+restore_title() {
+    set_tab_title "${PWD##*/}"
+}
+trap restore_title EXIT
+
+# Rename tab to "Dev VM"
+set_tab_title "Dev VM"
+
 echo "Connecting to ${VM_IP}..."
 ssh -i "${SSH_KEY_PATH}" -o StrictHostKeyChecking=accept-new \
     -L 3000:localhost:3000 \
