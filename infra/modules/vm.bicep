@@ -35,8 +35,16 @@ packages:
   - htop
   - jq
   - unzip
+  - gpg
 
 write_files:
+  - path: /etc/apt/sources.list.d/1password.sources
+    content: |
+      Types: deb
+      URIs: https://downloads.1password.com/linux/debian/amd64
+      Suites: stable
+      Components: main
+      Signed-By: /usr/share/keyrings/1password-archive-keyring.gpg
   - path: /etc/apt/sources.list.d/github-cli.list
     content: |
       deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
@@ -55,6 +63,9 @@ write_files:
       EOF
 
 runcmd:
+  # 1Password CLI keyring
+  - curl -fsSL https://downloads.1password.com/linux/keys/1password.asc | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg
+  - chmod go+r /usr/share/keyrings/1password-archive-keyring.gpg
   # GitHub CLI keyring
   - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
   - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -65,7 +76,7 @@ runcmd:
   - /tmp/setup-docker-repo.sh
   # Install packages
   - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh 1password-cli
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
@@ -75,7 +86,9 @@ runcmd:
   - su - azureuser -c 'git config --global init.defaultBranch main'
   - su - azureuser -c 'git config --global pull.rebase true'
   # Shell-bootstrap for nice prompt (runs as azureuser)
-  - su - azureuser -c 'curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash'
+  # NOTE: Must download first then run - piping to bash breaks interactive prompts
+  # Secrets will be loaded later via 1Password when sync-secrets.sh is run
+  - su - azureuser -c 'curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh && bash /tmp/shell-bootstrap-install.sh && rm -f /tmp/shell-bootstrap-install.sh'
   - echo "VM setup complete" > /var/log/cloud-init-complete.log
 '''
 

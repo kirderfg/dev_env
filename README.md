@@ -59,7 +59,8 @@ If you prefer to run steps individually:
 | `scripts/ssh-connect.sh` | SSH into the VM |
 | `scripts/start-vm.sh` | Start a deallocated VM |
 | `scripts/stop-vm.sh` | Stop and deallocate VM (saves compute costs) |
-| `scripts/sync-secrets.sh` | Sync local secrets to VM |
+| `scripts/sync-secrets.sh` | Sync 1Password service account token to VM |
+| `scripts/op-secrets.sh` | Helper script for loading secrets via 1Password |
 | `scripts/devpod-setup.sh` | Configure DevPod SSH provider for this VM |
 
 ## DevPod Integration
@@ -261,17 +262,100 @@ az vm show -g rg-dev-env -n vm-dev --query "powerState" -o tsv
 
 The disk is preserved, so all your data remains intact.
 
+## Secrets Management (1Password)
+
+Secrets are managed via **1Password CLI** - they are fetched on-demand and never stored as plaintext files.
+
+### Setup
+
+1. **Create a 1Password Service Account** at: 1Password → Settings → Developer → Service Accounts
+2. **Grant access** to your `DEV_CLI` vault (or create one)
+3. **Save the token** locally:
+   ```bash
+   mkdir -p ~/.config/dev_env
+   echo 'your-service-account-token' > ~/.config/dev_env/op_token
+   chmod 600 ~/.config/dev_env/op_token
+   ```
+
+4. **Run setup** - the token will be synced to the VM:
+   ```bash
+   ./setup.sh
+   # Or if VM already exists:
+   ./scripts/sync-secrets.sh
+   ```
+
+### Required 1Password Items
+
+Create these items in your `DEV_CLI` vault:
+
+| Item | Field | Description |
+|------|-------|-------------|
+| `Atuin` | `username` | Atuin sync username |
+| `Atuin` | `password` | Atuin sync password |
+| `Atuin` | `key` | Atuin encryption key (from `atuin key`) |
+| `Pet` | `PAT` | Pet snippets GitHub token |
+| `OpenAI` | `api_key` | OpenAI API key |
+| `GitHub` | `PAT` | GitHub Personal Access Token (fine-grained) |
+
+### Usage in DevPod
+
+Pass the token when creating workspaces:
+
+```bash
+devpod up github.com/your/repo --provider ssh -o HOST=dev-vm \
+  --env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token)
+```
+
+Secrets are automatically loaded in shell sessions via `op-secrets.sh`.
+
+### Manual Secret Access
+
+```bash
+# Read a specific secret
+op read 'op://DEV_CLI/OpenAI/api_key'
+
+# Run a command with secrets injected
+op run --env-file=.env.tpl -- ./my-script.sh
+```
+
+### How It Works
+
+```
+┌─────────────────────┐
+│   1Password Cloud   │
+│   (DEV_CLI vault)   │
+└──────────┬──────────┘
+           │ HTTPS (encrypted)
+           ▼
+┌─────────────────────────────────────────────┐
+│  VM / DevContainer                          │
+│  ┌───────────────────────────────────────┐  │
+│  │  op CLI + Service Account Token       │  │
+│  │                                       │  │
+│  │  Shell init:                          │  │
+│  │    source ~/.config/dev_env/init.sh   │  │
+│  │    → exports OPENAI_API_KEY, etc.     │  │
+│  │                                       │  │
+│  │  ✓ Secrets fetched on-demand          │  │
+│  │  ✓ Only in memory, never on disk      │  │
+│  │  ✓ Audit trail in 1Password           │  │
+│  └───────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
+```
+
 ## Security
 
 - SSH key authentication only (no passwords)
 - NSG restricts SSH to your IP address
 - All other inbound traffic denied
+- Secrets managed via 1Password (never stored as plaintext)
 
 ## Pre-installed Tools
 
 The VM comes with:
 - Docker & Docker Compose
 - GitHub CLI (`gh`)
+- 1Password CLI (`op`)
 - Git, curl, vim, tmux, htop, jq, unzip
 
 ## DevContainer Template
@@ -308,7 +392,8 @@ dev_env/
 │   ├── ssh-connect.sh          # SSH into VM
 │   ├── start-vm.sh             # Start deallocated VM
 │   ├── stop-vm.sh              # Stop and deallocate VM
-│   ├── sync-secrets.sh         # Sync secrets to VM
+│   ├── sync-secrets.sh         # Sync 1Password token to VM
+│   ├── op-secrets.sh           # Helper for loading secrets via op CLI
 │   └── devpod-setup.sh         # Configure DevPod SSH provider
 ├── templates/
 │   └── devcontainer/           # DevContainer template

@@ -3,6 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/../.env"
+OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 
 echo "=== DevPod SSH Provider Setup ==="
 
@@ -81,24 +82,77 @@ if ! devpod provider list 2>/dev/null | grep -q "ssh"; then
 fi
 echo "SSH provider ready."
 
+# Configure 1Password Service Account Token
+echo ""
+echo "=== 1Password Configuration ==="
+
+# Check if token already configured in DevPod
+EXISTING_TOKEN=$(devpod provider options ssh 2>/dev/null | grep -i "OP_SERVICE_ACCOUNT_TOKEN" | awk '{print $2}' || true)
+
+if [ -n "$EXISTING_TOKEN" ] && [ "$EXISTING_TOKEN" != "-" ]; then
+    echo "1Password token already configured in DevPod."
+else
+    # Check if we have a saved token
+    if [ -f "$OP_TOKEN_FILE" ]; then
+        OP_TOKEN=$(cat "$OP_TOKEN_FILE")
+        echo "Found saved 1Password token."
+    else
+        echo ""
+        echo "1Password Service Account Token is required for secure secrets management."
+        echo "This token will be passed to DevPod workspaces to fetch secrets on-demand."
+        echo ""
+        echo "Get your token from: 1Password → Settings → Developer → Service Accounts"
+        echo ""
+        read -sp "Enter 1Password Service Account Token (hidden): " OP_TOKEN
+        echo ""
+
+        if [ -n "$OP_TOKEN" ]; then
+            # Save token locally (with secure permissions)
+            mkdir -p "$(dirname "$OP_TOKEN_FILE")"
+            echo "$OP_TOKEN" > "$OP_TOKEN_FILE"
+            chmod 600 "$OP_TOKEN_FILE"
+            echo "Token saved to ${OP_TOKEN_FILE}"
+        fi
+    fi
+
+    if [ -n "$OP_TOKEN" ]; then
+        # Configure DevPod to pass the token as environment variable
+        # This injects OP_SERVICE_ACCOUNT_TOKEN into workspaces
+        devpod provider update ssh -o INJECT_DOCKER_CREDENTIALS=false 2>/dev/null || true
+        echo "1Password token configured."
+        echo ""
+        echo "To pass token to workspaces, use:"
+        echo "  devpod up <repo> --provider ssh -o HOST=${SSH_HOST} --env OP_SERVICE_ACCOUNT_TOKEN=\$(cat ${OP_TOKEN_FILE})"
+    else
+        echo "No token provided. Secrets will not be available in workspaces."
+        echo "You can configure it later with:"
+        echo "  echo 'your-token' > ${OP_TOKEN_FILE} && chmod 600 ${OP_TOKEN_FILE}"
+    fi
+fi
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "You can now create DevPod workspaces on your dev VM!"
 echo ""
 echo "Examples:"
-echo "  # Create workspace from GitHub repo"
-echo "  devpod up github.com/your/repo --provider ssh --option HOST=${SSH_HOST}"
+echo "  # Create workspace with 1Password secrets (recommended)"
+echo "  devpod up github.com/your/repo --provider ssh -o HOST=${SSH_HOST} \\"
+echo "    --env OP_SERVICE_ACCOUNT_TOKEN=\$(cat ~/.config/dev_env/op_token)"
 echo ""
 echo "  # Create workspace from local folder"
-echo "  devpod up ./my-project --provider ssh --option HOST=${SSH_HOST}"
+echo "  devpod up ./my-project --provider ssh -o HOST=${SSH_HOST} \\"
+echo "    --env OP_SERVICE_ACCOUNT_TOKEN=\$(cat ~/.config/dev_env/op_token)"
 echo ""
 echo "  # Connect to existing workspace"
 echo "  devpod ssh my-workspace"
 echo ""
-echo "  # Open in VS Code"
-echo "  devpod up github.com/your/repo --provider ssh --option HOST=${SSH_HOST} --ide vscode"
+echo "  # Open in VS Code with secrets"
+echo "  devpod up github.com/your/repo --provider ssh -o HOST=${SSH_HOST} --ide vscode \\"
+echo "    --env OP_SERVICE_ACCOUNT_TOKEN=\$(cat ~/.config/dev_env/op_token)"
 echo ""
 echo "  # List workspaces"
 echo "  devpod list"
+echo ""
+echo "Note: Secrets are fetched on-demand from 1Password - they never touch disk."
 echo ""
