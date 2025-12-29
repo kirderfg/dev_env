@@ -36,7 +36,7 @@ az login
 ./setup.sh
 
 # 3. Start coding!
-devpod up github.com/your/repo --provider ssh --option HOST=dev-vm --ide vscode
+devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide vscode
 ```
 
 ### Manual Setup
@@ -143,7 +143,7 @@ More info: https://devpod.sh/docs/getting-started/install
 
 ```bash
 # 1. Create workspace from a GitHub repo
-devpod up github.com/your/repo --provider ssh --option HOST=dev-vm --ide none
+devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide none
 
 # 2. SSH into the workspace
 devpod ssh your-repo
@@ -154,7 +154,7 @@ devpod ssh your-repo
 
 **Full example session:**
 ```bash
-$ devpod up github.com/microsoft/vscode-remote-try-go --provider ssh --option HOST=dev-vm --ide none
+$ devpod up github.com/microsoft/vscode-remote-try-go --provider ssh --provider-option HOST=dev-vm --ide none
 # ... builds container ...
 
 $ devpod ssh vscode-remote-try-go
@@ -165,14 +165,14 @@ root@devcontainer:/workspaces/vscode-remote-try-go# go run server.go
 
 ```bash
 # Opens VS Code connected to the devcontainer
-devpod up github.com/your/repo --provider ssh --option HOST=dev-vm --ide vscode
+devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide vscode
 ```
 
 #### From Local Folder
 
 ```bash
 # Syncs local folder to VM and creates devcontainer
-devpod up ./my-project --provider ssh --option HOST=dev-vm --ide none
+devpod up ./my-project --provider ssh --provider-option HOST=dev-vm --ide none
 
 # Then connect
 devpod ssh my-project
@@ -306,8 +306,8 @@ The 1Password Service Account Token must be provided to each environment:
 │  ┌─────────────────────┐                ┌──────────────────────────────┐   │
 │  │     AZURE VM        │                │     DEVPOD CONTAINER         │   │
 │  │                     │                │                              │   │
-│  │  sync-secrets.sh    │                │  --env OP_SERVICE_ACCOUNT_   │   │
-│  │  copies token to:   │                │  TOKEN=$(...) passes token   │   │
+│  │  sync-secrets.sh    │                │  --workspace-env passes      │   │
+│  │  copies token to:   │                │  OP_SERVICE_ACCOUNT_TOKEN    │   │
 │  │  ~/.config/dev_env/ │                │  to container environment    │   │
 │  │  op_token           │                │                              │   │
 │  │                     │                │  shell-bootstrap picks up    │   │
@@ -335,12 +335,14 @@ Pass the token when creating workspaces:
 
 ```bash
 # Create workspace with secrets
-devpod up github.com/your/repo --provider ssh -o HOST=dev-vm \
-  --env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token)
+devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm \
+  --ide none --workspace-env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token) \
+  --workspace-env SHELL_BOOTSTRAP_NONINTERACTIVE=1
 
 # Or from local folder
-devpod up ./my-project --provider ssh -o HOST=dev-vm \
-  --env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token)
+devpod up ./my-project --provider ssh --provider-option HOST=dev-vm \
+  --ide none --workspace-env OP_SERVICE_ACCOUNT_TOKEN=$(cat ~/.config/dev_env/op_token) \
+  --workspace-env SHELL_BOOTSTRAP_NONINTERACTIVE=1
 ```
 
 **Tip:** Use `pet` snippets (Ctrl+S) for quick access to these commands.
