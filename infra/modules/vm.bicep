@@ -92,18 +92,13 @@ runcmd:
   - echo "VM setup complete" > /var/log/cloud-init-complete.log
 '''
 
-// Virtual Machine with Spot configuration
+// Virtual Machine (regular pricing - no eviction)
 resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
   name: vmName
   location: location
   properties: {
     hardwareProfile: {
       vmSize: vmSize
-    }
-    priority: 'Spot'
-    evictionPolicy: 'Deallocate'
-    billingProfile: {
-      maxPrice: -1 // Pay up to on-demand price
     }
     storageProfile: {
       imageReference: {

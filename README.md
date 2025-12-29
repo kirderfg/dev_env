@@ -1,6 +1,6 @@
-# Azure Spot VM Development Environment
+# Azure VM Development Environment
 
-A cost-effective Azure Spot VM for container development in Sweden Central, with DevPod integration for managing devcontainers remotely.
+A cost-effective Azure VM for container development in Sweden Central, with DevPod integration for managing devcontainers remotely.
 
 ## Specs
 
@@ -10,12 +10,12 @@ A cost-effective Azure Spot VM for container development in Sweden Central, with
 | OS | Ubuntu 24.04 LTS |
 | Disk | 64GB Premium SSD |
 | Region | Sweden Central |
-| Spot Config | maxPrice: -1 (pay up to on-demand, evict on capacity only) |
-| Eviction | Deallocate (preserves disk) |
+| Pricing: Regular (on-demand) |
+| |
 
 ## Cost Estimate
 
-- Spot VM: ~$0.05/hr
+- VM: ~$0.05/hr
 - Disk: ~$10/mo
 - Public IP: ~$3.65/mo
 - **Total (24/7)**: ~$50/mo
@@ -80,7 +80,7 @@ That's it! Now jump to [Usage](#usage).
 
 ```
 ┌─────────────────┐         SSH          ┌─────────────────────────────┐
-│  Local Machine  │◄───────────────────►│        Azure Spot VM         │
+│  Local Machine  │◄───────────────────►│        Azure VM         │
 │                 │                      │                              │
 │  - DevPod CLI   │                      │  ┌────────────────────────┐ │
 │  - VS Code      │                      │  │    DevContainer        │ │
@@ -133,7 +133,7 @@ More info: https://devpod.sh/docs/getting-started/install
 
 **What it does:**
 1. Installs DevPod CLI to `~/.local/bin` (if not present)
-2. Deploys Azure Spot VM (if not exists)
+2. Deploys Azure VM (if not exists)
 3. Adds SSH config entry `dev-vm`
 4. Configures DevPod SSH provider
 
@@ -247,7 +247,7 @@ Add this to your project at `.devcontainer/devcontainer.json`:
 - **Port forwarding**: DevPod auto-forwards ports. Access `localhost:3000` on your machine for a service running in the container.
 - **Multiple workspaces**: Run several projects on the same VM, each in isolated containers.
 
-## After Eviction
+## After |
 
 If Azure reclaims the VM due to capacity:
 
