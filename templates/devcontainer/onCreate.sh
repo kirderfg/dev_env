@@ -160,6 +160,34 @@ if ! command -v snyk &> /dev/null; then
     warn "Run 'snyk auth' to authenticate with Snyk"
 fi
 
+# Install Tailscale for remote SSH access
+if ! command -v tailscale &> /dev/null; then
+    log "Installing Tailscale..."
+    curl -fsSL https://tailscale.com/install.sh | sh
+fi
+
+# Configure Tailscale if auth key available
+if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null) || true
+    if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+        log "Configuring Tailscale..."
+        # Start tailscaled in userspace mode (works in containers without root)
+        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock &
+        sleep 2
+        # Get container/workspace name for hostname
+        CONTAINER_NAME="${DEVCONTAINER_NAME:-$(basename $(pwd))}"
+        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --ssh --hostname="devpod-${CONTAINER_NAME}" && log "Tailscale connected!" || warn "Tailscale auth failed"
+        if tailscale status &> /dev/null; then
+            TS_IP=$(tailscale ip -4 2>/dev/null || echo "pending")
+            log "Tailscale IP: $TS_IP"
+        fi
+    else
+        warn "Tailscale auth key not found in 1Password"
+    fi
+else
+    warn "Tailscale not configured (no 1Password token)"
+fi
+
 # Install Python dependencies if pyproject.toml exists
 if [ -f "pyproject.toml" ]; then
     log "Installing Python dependencies..."

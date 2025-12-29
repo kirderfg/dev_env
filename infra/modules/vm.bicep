@@ -48,6 +48,9 @@ write_files:
   - path: /etc/apt/sources.list.d/github-cli.list
     content: |
       deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
+  - path: /etc/apt/sources.list.d/tailscale.list
+    content: |
+      deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu noble main
   - path: /tmp/setup-docker-repo.sh
     permissions: '0755'
     content: |
@@ -69,6 +72,9 @@ runcmd:
   # GitHub CLI keyring
   - curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
   - chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+  # Tailscale keyring
+  - curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+  - chmod go+r /usr/share/keyrings/tailscale-archive-keyring.gpg
   # Docker keyring and repo
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -76,10 +82,13 @@ runcmd:
   - /tmp/setup-docker-repo.sh
   # Install packages
   - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh 1password-cli
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin gh 1password-cli tailscale
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
+  # Enable Tailscale (auth done later via setup-tailscale.sh after 1Password sync)
+  - systemctl enable tailscaled
+  - systemctl start tailscaled
   # Git config
   - su - azureuser -c 'git config --global user.name "Fredrik Gustavsson"'
   - su - azureuser -c 'git config --global user.email "fredrik@thegustavssons.se"'
