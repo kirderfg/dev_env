@@ -81,11 +81,11 @@ op-load-secret() {
 op-load-all-secrets() {
     if ! op-check; then return 1; fi
     local loaded=0
-    op-load-secret GITHUB_TOKEN "op://DEV_CLI/GitHub/PAT" && ((loaded++))
-    op-load-secret GH_TOKEN "op://DEV_CLI/GitHub/PAT" && ((loaded++))
-    op-load-secret ATUIN_USERNAME "op://DEV_CLI/Atuin/username" && ((loaded++))
-    op-load-secret ATUIN_PASSWORD "op://DEV_CLI/Atuin/password" && ((loaded++))
-    op-load-secret ATUIN_KEY "op://DEV_CLI/Atuin/key" && ((loaded++))
+    op-load-secret GITHUB_TOKEN "op://DEV_CLI/GitHub/PAT" && loaded=$((loaded + 1))
+    op-load-secret GH_TOKEN "op://DEV_CLI/GitHub/PAT" && loaded=$((loaded + 1))
+    op-load-secret ATUIN_USERNAME "op://DEV_CLI/Atuin/username" && loaded=$((loaded + 1))
+    op-load-secret ATUIN_PASSWORD "op://DEV_CLI/Atuin/password" && loaded=$((loaded + 1))
+    op-load-secret ATUIN_KEY "op://DEV_CLI/Atuin/key" && loaded=$((loaded + 1))
     echo "[op-secrets] Loaded ${loaded} secrets" >&2
 }
 
