@@ -5,7 +5,7 @@ param location string
 param vmName string
 
 @description('VM size')
-param vmSize string = 'Standard_D4s_v5'
+param vmSize string = 'Standard_D2s_v6'
 
 @description('Admin username')
 param adminUsername string = 'azureuser'

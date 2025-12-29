@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../infra"
 ENV_FILE="${SCRIPT_DIR}/../.env"
 
-echo "=== Azure Spot VM Deployment ==="
+echo "=== Azure Dev VM Deployment ==="
 
 # Check if Azure CLI is installed
 if ! command -v az &> /dev/null; then
@@ -53,7 +53,7 @@ az deployment group create \
         location="swedencentral" \
         namePrefix="dev-env" \
         vmName="${VM_NAME}" \
-        vmSize="Standard_D2s_v5" \
+        vmSize="Standard_D2s_v6" \
         osDiskSizeGB=64 \
         sshPublicKey="${SSH_PUBLIC_KEY}" \
         allowedSshIps="[\"${MY_IP}/32\"]" \

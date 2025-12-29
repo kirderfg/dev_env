@@ -10,7 +10,7 @@ param namePrefix string = 'dev-env'
 param vmName string = 'vm-dev'
 
 @description('VM size')
-param vmSize string = 'Standard_D4s_v5'
+param vmSize string = 'Standard_D2s_v6'
 
 @description('SSH public key for authentication')
 @secure()

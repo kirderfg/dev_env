@@ -3,7 +3,7 @@ using '../main.bicep'
 param location = 'swedencentral'
 param namePrefix = 'dev-env'
 param vmName = 'vm-dev'
-param vmSize = 'Standard_D4s_v5'
+param vmSize = 'Standard_D2s_v6'
 param osDiskSizeGB = 64
 
 // SSH public key - will be read from file during deployment
