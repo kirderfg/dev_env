@@ -40,6 +40,19 @@ The template includes:
 - Git configuration
 - GitHub CLI authentication
 
+## 1Password Secrets Required
+
+The devcontainer template reads these secrets from 1Password:
+
+| Secret Path | Purpose |
+|-------------|---------|
+| `op://DEV_CLI/Tailscale/auth_key` | Tailscale auth key for device registration |
+| `op://DEV_CLI/Tailscale/api_key` | Tailscale API key for removing old devices (optional) |
+| `op://DEV_CLI/Atuin/username` | Atuin shell history sync |
+| `op://DEV_CLI/Atuin/password` | Atuin shell history sync |
+| `op://DEV_CLI/Atuin/key` | Atuin shell history sync |
+| `op://DEV_CLI/GitHub/PAT` | GitHub Personal Access Token |
+
 ## Key Paths
 
 | Path | Purpose |

@@ -24,13 +24,6 @@
     "ghcr.io/devcontainers-extra/features/pre-commit:2": {}
   },
 
-  // Port forwarding
-  "forwardPorts": [3000, 8000],
-  "portsAttributes": {
-    "3000": { "label": "Frontend (Vite/Node)", "onAutoForward": "notify" },
-    "8000": { "label": "API (FastAPI)", "onAutoForward": "notify" }
-  },
-
   // Lifecycle scripts
   "onCreateCommand": "bash .devcontainer/onCreate.sh",
   "postStartCommand": "bash .devcontainer/postStart.sh",

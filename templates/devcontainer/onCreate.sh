@@ -169,6 +169,7 @@ fi
 # Configure Tailscale if auth key available
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
     TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null) || true
+    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null) || true
     if [ -n "$TAILSCALE_AUTH_KEY" ]; then
         log "Configuring Tailscale..."
         # Start tailscaled in userspace mode (works in containers without root)
@@ -176,7 +177,25 @@ if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
         sleep 2
         # Get container/workspace name for hostname
         CONTAINER_NAME="${DEVCONTAINER_NAME:-$(basename $(pwd))}"
-        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --ssh --hostname="devpod-${CONTAINER_NAME}" && log "Tailscale connected!" || warn "Tailscale auth failed"
+        TS_HOSTNAME="devpod-${CONTAINER_NAME}"
+
+        # Remove existing Tailscale device with same hostname (if API key available)
+        if [ -n "$TAILSCALE_API_KEY" ]; then
+            log "Checking for existing Tailscale device: $TS_HOSTNAME..."
+            EXISTING_DEVICE=$(curl -s -H "Authorization: Bearer $TAILSCALE_API_KEY" \
+                "https://api.tailscale.com/api/v2/tailnet/-/devices" 2>/dev/null | \
+                grep -o "\"id\":\"[^\"]*\",\"name\":\"$TS_HOSTNAME\"" | \
+                head -1 | sed 's/.*"id":"\([^"]*\)".*/\1/')
+            if [ -n "$EXISTING_DEVICE" ]; then
+                log "Removing existing device: $TS_HOSTNAME ($EXISTING_DEVICE)..."
+                curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_KEY" \
+                    "https://api.tailscale.com/api/v2/device/$EXISTING_DEVICE" 2>/dev/null && \
+                    log "Removed old device" || warn "Failed to remove old device"
+                sleep 1
+            fi
+        fi
+
+        sudo tailscale up --authkey="$TAILSCALE_AUTH_KEY" --ssh --hostname="$TS_HOSTNAME" --force-reauth && log "Tailscale connected!" || warn "Tailscale auth failed"
         if tailscale status &> /dev/null; then
             TS_IP=$(tailscale ip -4 2>/dev/null || echo "pending")
             log "Tailscale IP: $TS_IP"
