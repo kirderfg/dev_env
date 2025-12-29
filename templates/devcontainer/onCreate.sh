@@ -172,7 +172,7 @@ if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
     if [ -n "$TAILSCALE_AUTH_KEY" ]; then
         log "Configuring Tailscale..."
         # Start tailscaled in userspace mode (works in containers without root)
-        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock &
+        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock > /tmp/tailscaled.log 2>&1 &
         sleep 2
         # Get container/workspace name for hostname
         CONTAINER_NAME="${DEVCONTAINER_NAME:-$(basename $(pwd))}"

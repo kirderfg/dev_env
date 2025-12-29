@@ -34,7 +34,7 @@ fi
 if command -v tailscale &> /dev/null; then
     if ! pgrep -x tailscaled > /dev/null; then
         log "Starting Tailscale daemon..."
-        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock &
+        sudo tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock > /tmp/tailscaled.log 2>&1 &
         sleep 2
     fi
     if tailscale status &> /dev/null; then
