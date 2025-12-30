@@ -1,6 +1,6 @@
 #!/bin/bash
-# Sync 1Password service account token to VM
-# shell-bootstrap on VM will use this token on next shell start
+# Sync 1Password service account token to VM using az vm run-command
+# Then re-runs shell-bootstrap to configure gh/atuin
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,10 +12,9 @@ if [ -f "${ENV_FILE}" ]; then
     source "${ENV_FILE}"
 fi
 
-# Use Tailscale hostname (no public SSH access)
-TAILSCALE_HOST="${TAILSCALE_HOSTNAME:-dev-vm}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-rg-dev-env}"
+VM_NAME="${VM_NAME:-vm-dev}"
 SSH_USER="${SSH_USER:-azureuser}"
-SSH_OPTS="-o StrictHostKeyChecking=accept-new -o LogLevel=ERROR"
 
 echo "=== Syncing 1Password Token to VM ==="
 
@@ -41,40 +40,62 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-echo "Copying token to VM via Tailscale..."
+# Check Azure CLI
+if ! command -v az &> /dev/null; then
+    echo "Error: Azure CLI is not installed"
+    exit 1
+fi
 
-# Create remote directory and copy token
-ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" \
-    "mkdir -p ~/.config/dev_env && chmod 700 ~/.config/dev_env"
+echo "Copying token to VM via az run-command..."
 
-# Copy token securely (never in shell history)
-ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" bash -s <<EOF
-cat > ~/.config/dev_env/op_token << 'TOKENEOF'
+# Use az vm run-command to write token
+az vm run-command invoke \
+    --resource-group "${RESOURCE_GROUP}" \
+    --name "${VM_NAME}" \
+    --command-id RunShellScript \
+    --scripts "
+mkdir -p /home/${SSH_USER}/.config/dev_env
+chmod 700 /home/${SSH_USER}/.config/dev_env
+cat > /home/${SSH_USER}/.config/dev_env/op_token << 'TOKENEOF'
 ${TOKEN}
 TOKENEOF
-chmod 600 ~/.config/dev_env/op_token
-EOF
+chmod 600 /home/${SSH_USER}/.config/dev_env/op_token
+chown -R ${SSH_USER}:${SSH_USER} /home/${SSH_USER}/.config/dev_env
+echo 'Token written successfully'
+" --query "value[0].message" -o tsv 2>/dev/null | tail -3
 
-# Verify op works on VM
+echo "✓ 1Password token synced"
+
+# Verify and configure shell-bootstrap
 echo ""
-echo "Verifying 1Password on VM..."
-ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" bash -s <<'EOF'
-export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
-if command -v op &>/dev/null; then
-    if op whoami &>/dev/null; then
-        echo "✓ 1Password CLI authenticated successfully"
-    else
-        echo "✗ 1Password authentication failed - check your token"
-    fi
+echo "=== Configuring gh/atuin via shell-bootstrap ==="
+az vm run-command invoke \
+    --resource-group "${RESOURCE_GROUP}" \
+    --name "${VM_NAME}" \
+    --command-id RunShellScript \
+    --scripts '
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat /home/'"${SSH_USER}"'/.config/dev_env/op_token 2>/dev/null)"
+
+# Verify 1Password works
+if op whoami &>/dev/null; then
+    echo "✓ 1Password CLI authenticated"
 else
-    echo "✗ 1Password CLI not installed"
-    echo "  Run: sudo apt-get update && sudo apt-get install -y 1password-cli"
+    echo "✗ 1Password authentication failed"
+    exit 1
 fi
-EOF
+
+# Re-run shell-bootstrap to configure gh/atuin/git/pet
+su - '"${SSH_USER}"' -c "
+export OP_SERVICE_ACCOUNT_TOKEN=\"\$(cat ~/.config/dev_env/op_token)\"
+curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh
+SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh
+rm -f /tmp/shell-bootstrap-install.sh
+"
+echo "✓ Shell environment configured"
+' --query "value[0].message" -o tsv 2>/dev/null | tail -10
 
 echo ""
 echo "=== Sync Complete ==="
 echo ""
-echo "Token synced to VM. Secrets will be loaded on next shell start."
-echo "SSH to VM and start a new zsh session to load secrets."
+echo "Token synced and shell configured. Connect with: ssh ${SSH_USER}@dev-vm"
 echo ""

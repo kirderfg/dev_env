@@ -49,7 +49,9 @@ This creates the VM with:
 
 **Two-phase setup:**
 1. **Cloud-init** (during VM creation): Installs packages and shell-bootstrap (tools only, no secrets)
-2. **deploy.sh post-setup**: Syncs 1Password token, re-runs shell-bootstrap to configure secrets, gh, atuin
+2. **deploy.sh post-setup**: Uses `az vm run-command` to sync 1Password token and re-run shell-bootstrap to configure gh, atuin
+
+**Note:** The deployment uses `az vm run-command` (not Tailscale SSH) to configure the VM, so it works directly from Azure Cloud Shell without needing Tailscale on the deploying machine.
 
 ## DevPod Deployment
 
@@ -277,7 +279,13 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 - Re-run: `curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash`
 
 ### gh/atuin not authenticated on VM
-Shell-bootstrap needs the 1Password token to configure services:
+This usually means the token sync during deploy.sh didn't complete. Fix by running sync-secrets.sh from Azure Cloud Shell:
+```bash
+cd ~/dev_env
+./scripts/sync-secrets.sh
+```
+
+Or manually on the VM itself:
 ```bash
 # Ensure token exists
 cat ~/.config/dev_env/op_token

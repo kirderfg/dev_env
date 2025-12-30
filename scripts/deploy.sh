@@ -133,95 +133,96 @@ echo "Public IP: ${PUBLIC_IP} (SSH blocked by NSG - use Tailscale)"
 
 if [ -n "$TAILSCALE_AUTH_KEY" ]; then
     echo ""
-    echo "=== Waiting for Tailscale connection ==="
-    echo "VM will auto-connect to Tailscale as 'dev-vm'..."
-    echo "Waiting for cloud-init to complete and Tailscale to connect..."
+    echo "=== Waiting for cloud-init to complete ==="
 
-    # Wait for Tailscale to come online (poll via Tailscale SSH)
-    TAILSCALE_HOST="dev-vm"
-    SSH_CMD="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 ${SSH_USER}@${TAILSCALE_HOST}"
-
+    # Wait for cloud-init using az vm run-command (works from Cloud Shell without Tailscale)
+    echo "Checking cloud-init status..."
     for i in {1..60}; do
-        if $SSH_CMD "exit 0" 2>/dev/null; then
+        CLOUD_INIT_STATUS=$(az vm run-command invoke \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${VM_NAME}" \
+            --command-id RunShellScript \
+            --scripts "cloud-init status 2>/dev/null | grep -o 'done\|running\|error' || echo 'waiting'" \
+            --query "value[0].message" -o tsv 2>/dev/null | grep -o 'done\|running\|error\|waiting' | head -1)
+
+        if [ "$CLOUD_INIT_STATUS" = "done" ]; then
             echo ""
-            echo "✓ Connected to VM via Tailscale!"
+            echo "✓ Cloud-init completed"
+            break
+        elif [ "$CLOUD_INIT_STATUS" = "error" ]; then
+            echo ""
+            echo "✗ Cloud-init failed - check VM logs"
             break
         fi
         echo -n "."
-        sleep 5
+        sleep 10
     done
     echo ""
 
-    # Check cloud-init status
-    if $SSH_CMD "exit 0" 2>/dev/null; then
-        echo "=== Cloud-init Status ==="
-        $SSH_CMD "cloud-init status --wait" 2>/dev/null || true
+    # Sync secrets and setup dev_env using az vm run-command
+    # This works from Azure Cloud Shell which doesn't have Tailscale
+    if [ -f "${HOME}/.config/dev_env/op_token" ]; then
+        echo ""
+        echo "=== Syncing secrets to VM ==="
+        OP_TOKEN=$(cat "${HOME}/.config/dev_env/op_token")
 
-        INIT_COMPLETE=$($SSH_CMD "cat /var/log/cloud-init-complete.log 2>/dev/null" || true)
-        if [ -n "$INIT_COMPLETE" ]; then
-            echo "Cloud-init: SUCCESS"
-        else
-            echo "Cloud-init: WARNING - setup may not have completed"
-            INIT_ERRORS=$($SSH_CMD "grep -i 'error\|failed\|fatal' /var/log/cloud-init-output.log 2>/dev/null | grep -v 'INFO\|DEBUG' | head -10" 2>/dev/null || true)
-            if [ -n "$INIT_ERRORS" ]; then
-                echo "Errors found:"
-                echo "$INIT_ERRORS"
-            fi
-        fi
+        # Use az vm run-command to write token and run shell-bootstrap
+        az vm run-command invoke \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${VM_NAME}" \
+            --command-id RunShellScript \
+            --scripts "
+mkdir -p /home/${SSH_USER}/.config/dev_env
+chmod 700 /home/${SSH_USER}/.config/dev_env
+cat > /home/${SSH_USER}/.config/dev_env/op_token << 'TOKENEOF'
+${OP_TOKEN}
+TOKENEOF
+chmod 600 /home/${SSH_USER}/.config/dev_env/op_token
+chown -R ${SSH_USER}:${SSH_USER} /home/${SSH_USER}/.config/dev_env
+echo 'Token written successfully'
+" --query "value[0].message" -o tsv 2>/dev/null | tail -5
 
-        # Sync secrets and setup dev_env
-        if [ -f "${HOME}/.config/dev_env/op_token" ]; then
-            echo ""
-            echo "=== Syncing secrets to VM ==="
-            # Create directory on VM first, then copy token
-            $SSH_CMD "mkdir -p ~/.config/dev_env && chmod 700 ~/.config/dev_env"
-            scp -o StrictHostKeyChecking=accept-new "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:.config/dev_env/op_token"
-            $SSH_CMD "chmod 600 ~/.config/dev_env/op_token"
-            # Verify token was copied
-            if $SSH_CMD "test -f ~/.config/dev_env/op_token"; then
-                echo "✓ 1Password token synced"
-            else
-                echo "✗ Failed to sync token"
-                exit 1
-            fi
+        echo "✓ 1Password token synced"
 
-            echo ""
-            echo "=== Setting up dev_env on VM ==="
-            $SSH_CMD bash -s <<'SETUP_EOF'
+        echo ""
+        echo "=== Setting up dev_env on VM ==="
+        az vm run-command invoke \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${VM_NAME}" \
+            --command-id RunShellScript \
+            --scripts '
 set -e
-export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
+export HOME=/home/'"${SSH_USER}"'
+cd $HOME
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat $HOME/.config/dev_env/op_token 2>/dev/null)"
 
 # Clone dev_env repo if not exists
-if [ ! -d ~/dev_env ]; then
+if [ ! -d $HOME/dev_env ]; then
     echo "Cloning dev_env repo..."
-    # Use op to get GitHub PAT for initial clone
     GITHUB_PAT=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null || true)
     if [ -n "$GITHUB_PAT" ]; then
-        git clone https://${GITHUB_PAT}@github.com/kirderfg/dev_env.git ~/dev_env
-        echo "✓ dev_env cloned to ~/dev_env"
+        su - '"${SSH_USER}"' -c "git clone https://${GITHUB_PAT}@github.com/kirderfg/dev_env.git $HOME/dev_env"
+        echo "✓ dev_env cloned"
     else
-        echo "✗ GitHub PAT not found - cannot clone dev_env"
+        echo "✗ GitHub PAT not found"
         exit 1
     fi
 else
-    echo "✓ dev_env already exists at ~/dev_env"
-    cd ~/dev_env && git pull --ff-only || true
+    echo "✓ dev_env already exists"
+    su - '"${SSH_USER}"' -c "cd $HOME/dev_env && git pull --ff-only" || true
 fi
 
-# Re-run shell-bootstrap now that token is available
-# This configures: 1Password secrets, GitHub CLI, Atuin, git credentials
+# Re-run shell-bootstrap with token to configure gh/atuin/git/pet
 echo ""
 echo "=== Running shell-bootstrap with 1Password token ==="
+su - '"${SSH_USER}"' -c "
+export OP_SERVICE_ACCOUNT_TOKEN=\"\$(cat ~/.config/dev_env/op_token)\"
 curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh
 SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh
 rm -f /tmp/shell-bootstrap-install.sh
+"
 echo "✓ Shell environment configured"
-SETUP_EOF
-        fi
-    else
-        echo ""
-        echo "WARNING: Could not connect via Tailscale after 5 minutes"
-        echo "Check Tailscale admin console for device 'dev-vm'"
+' --query "value[0].message" -o tsv 2>/dev/null | tail -20
     fi
 
     echo ""
