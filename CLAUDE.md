@@ -29,10 +29,9 @@ curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/boots
 1. Installs 1Password CLI and GitHub CLI
 2. Authenticates with GitHub using PAT from 1Password
 3. Clones the dev_env repo
-4. Fetches SSH key from 1Password (`op://DEV_CLI/dev-vm-key`)
-5. Fetches Tailscale auth key from 1Password (`op://DEV_CLI/Tailscale/auth_key`)
-6. Deploys the Azure VM with Tailscale auto-connect enabled
-7. Waits for VM to connect to Tailscale, then syncs secrets and clones dev_env
+4. Fetches Tailscale auth key from 1Password (`op://DEV_CLI/Tailscale/auth_key`)
+5. Deploys the Azure VM with Tailscale auto-connect enabled
+6. Waits for VM to connect to Tailscale, then syncs secrets and clones dev_env
 
 ### Alternative: Local Machine Setup
 If you prefer to run from a local machine with az CLI:
@@ -180,8 +179,6 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 
 | Secret Path | Purpose | Required |
 |-------------|---------|----------|
-| `op://DEV_CLI/dev-vm-key/private key` | SSH private key for VM access | Yes |
-| `op://DEV_CLI/dev-vm-key/public key` | SSH public key for VM access | Yes |
 | `op://DEV_CLI/GitHub/PAT` | GitHub Personal Access Token (for cloning dev_env) | Yes |
 | `op://DEV_CLI/Tailscale/auth_key` | Tailscale auth key for device registration | Yes |
 | `op://DEV_CLI/Tailscale/api_key` | Tailscale API key for removing old devices | Yes |

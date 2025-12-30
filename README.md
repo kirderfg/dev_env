@@ -33,9 +33,8 @@ A cost-effective Azure VM for container development in Sweden Central, with DevP
 
 | Item | Type | Fields | Purpose |
 |------|------|--------|---------|
-| `dev-vm-key` | SSH Key | `private key`, `public key` | VM SSH access |
 | `GitHub` | Login | `PAT` | Clone private repos |
-| `Tailscale` | Login | `auth_key`, `api_key` | Container networking |
+| `Tailscale` | Login | `auth_key`, `api_key` | VM + container networking |
 
 ### Create Service Account Token
 
