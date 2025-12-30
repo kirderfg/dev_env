@@ -30,7 +30,7 @@ A best-practices devcontainer configuration with security scanning, pre-commit h
 - GitLens, Git Graph (VS Code)
 
 ### AI-Assisted Development
-- **Claude Code CLI** - AI coding assistant in terminal
+- **Claude Code CLI** - AI coding assistant in terminal (via shell-bootstrap)
 - **Claude Code UI** - Web interface for Claude Code (port 3001)
   - Access from iPhone, tablet, or any browser via Tailscale
   - Manage sessions, chat interface, file explorer

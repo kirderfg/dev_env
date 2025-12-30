@@ -110,7 +110,7 @@ cp ~/dev_env/templates/devcontainer/devcontainer.json /path/to/project/.devconta
 - **Python 3.12 + Node 20** base image
 - **1Password CLI** for secret management
 - **Tailscale SSH** for remote access (auto-removes old devices on redeploy)
-- **Claude Code CLI** - AI coding assistant in terminal
+- **Claude Code CLI** - AI coding assistant in terminal (via shell-bootstrap)
 - **Claude Code UI** - Web interface on port 3001 (access from iPhone/browser via Tailscale)
 - **Shell-bootstrap** for terminal tools (zsh, starship, atuin, yazi, pet, etc.)
 - **Docker-in-Docker** for container operations
