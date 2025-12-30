@@ -1,10 +1,58 @@
 # Dev Environment - Claude Instructions
 
+## Architecture
+
+DevPods run on an Azure VM (dev-vm). All devpod management commands are executed **on the VM**, not locally.
+
+### Initial VM Setup (Azure Cloud Shell - Recommended)
+
+The safest way to deploy is from Azure Cloud Shell - no local dependencies needed.
+
+**Step 1: Open Azure Cloud Shell**
+1. Go to [portal.azure.com](https://portal.azure.com)
+2. Click the Cloud Shell icon (>_) in the top navigation bar
+3. Select **Bash** if prompted for shell type
+4. Wait for the shell to initialize
+
+**Step 2: Deploy the VM**
+```bash
+# Set your 1Password Service Account Token
+export OP_SERVICE_ACCOUNT_TOKEN='ops_eyJ...'
+
+# Run the bootstrap script (one-liner)
+curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/bootstrap.sh | bash
+```
+
+**What the bootstrap script does:**
+1. Installs 1Password CLI and GitHub CLI
+2. Authenticates with GitHub using PAT from 1Password
+3. Clones the dev_env repo
+4. Fetches SSH key from 1Password (`op://DEV_CLI/SSH Key`)
+5. Deploys the Azure VM
+6. Syncs secrets and clones dev_env onto the VM
+
+### Alternative: Local Machine Setup
+If you prefer to run from a local machine with az CLI:
+```bash
+./setup.sh
+```
+
+This creates the VM with:
+- Docker and DevPod CLI pre-installed
+- 1Password CLI for secrets
+- GitHub CLI configured via 1Password PAT
+- The `dev_env` repo cloned to `~/dev_env`
+
 ## DevPod Deployment
 
-**ALWAYS use the `dp` wrapper script to deploy devpods** - never use `devpod` directly.
+**SSH to the VM first**, then use the `dp` wrapper script - never use `devpod` directly.
 
-### Deploy a new workspace
+```bash
+# Connect to VM
+./scripts/ssh-connect.sh
+```
+
+### Deploy a new workspace (on VM)
 ```bash
 ~/dev_env/scripts/dp.sh up https://github.com/user/repo
 ```
@@ -30,7 +78,7 @@
 The `dp` script automatically:
 - Injects `OP_SERVICE_ACCOUNT_TOKEN` from `~/.config/dev_env/op_token`
 - Sets `SHELL_BOOTSTRAP_NONINTERACTIVE=1`
-- Uses the `ssh` provider with `HOST=dev-vm`
+- Uses the local `docker` provider
 
 ## DevContainer Template
 
@@ -129,21 +177,35 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 
 | Secret Path | Purpose | Required |
 |-------------|---------|----------|
+| `op://DEV_CLI/SSH Key/private key` | SSH private key for VM access | Yes |
+| `op://DEV_CLI/SSH Key/public key` | SSH public key for VM access | Yes |
+| `op://DEV_CLI/GitHub/PAT` | GitHub Personal Access Token (for cloning dev_env) | Yes |
 | `op://DEV_CLI/Tailscale/auth_key` | Tailscale auth key for device registration | Yes |
 | `op://DEV_CLI/Tailscale/api_key` | Tailscale API key for removing old devices | Yes |
 | `op://DEV_CLI/Atuin/username` | Atuin shell history sync | Optional |
 | `op://DEV_CLI/Atuin/password` | Atuin shell history sync | Optional |
 | `op://DEV_CLI/Atuin/key` | Atuin shell history sync | Optional |
-| `op://DEV_CLI/GitHub/PAT` | GitHub Personal Access Token | Optional |
 
 ## Key Paths
 
+**On your local machine:**
 | Path | Purpose |
 |------|---------|
-| `~/.config/dev_env/op_token` | 1Password Service Account token (on host) |
+| `~/.config/dev_env/op_token` | 1Password Service Account token (synced to VM) |
+| `~/dev_env/setup.sh` | Initial VM deployment script |
+| `~/dev_env/scripts/ssh-connect.sh` | SSH to the VM |
+
+**On the VM (dev-vm):**
+| Path | Purpose |
+|------|---------|
+| `~/.config/dev_env/op_token` | 1Password Service Account token |
 | `~/dev_env/scripts/dp.sh` | DevPod wrapper script |
 | `~/dev_env/templates/devcontainer/` | Devcontainer template files |
-| `/tmp/tailscaled.log` | Tailscale daemon logs (inside container) |
+
+**Inside devpod containers:**
+| Path | Purpose |
+|------|---------|
+| `/tmp/tailscaled.log` | Tailscale daemon logs |
 
 ## Common Mistakes to Avoid
 
@@ -157,7 +219,7 @@ If you fix something in a project's devcontainer, also update the template in `d
 If `--recreate` doesn't pick up devcontainer.json changes (like new base image):
 ```bash
 ~/dev_env/scripts/dp.sh delete workspace-name
-ssh dev-vm "docker image prune -f"
+docker image prune -f
 ~/dev_env/scripts/dp.sh up https://github.com/user/repo
 ```
 

@@ -23,29 +23,117 @@ A cost-effective Azure VM for container development in Sweden Central, with DevP
 
 ## Prerequisites
 
-- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) installed
 - Azure subscription with permissions to create VMs
+- 1Password account with Service Account Token
+- Required 1Password items in `DEV_CLI` vault (see [1Password Setup](#1password-setup))
 
-## Quick Start
+## 1Password Setup
+
+### Required Items in `DEV_CLI` Vault
+
+| Item | Type | Fields | Purpose |
+|------|------|--------|---------|
+| `SSH Key` | SSH Key | `private key`, `public key` | VM SSH access |
+| `GitHub` | Login | `PAT` | Clone private repos |
+| `Tailscale` | Login | `auth_key`, `api_key` | Container networking |
+
+### Create Service Account Token
+
+1. Go to [1Password.com](https://1password.com) → Settings → Developer → Service Accounts
+2. Create a new Service Account
+3. Grant access to the `DEV_CLI` vault
+4. Copy the token (starts with `ops_eyJ...`)
+
+### Local WSL Setup (Windows) - SSH with 1Password Desktop
+
+Use 1Password Desktop's SSH Agent for secure, biometric-authenticated SSH access.
+
+**Step 1: Enable 1Password SSH Agent (Windows)**
+
+1. Open 1Password Desktop app
+2. Go to Settings → Developer
+3. Enable **SSH Agent**
+4. Enable **Use the SSH agent** for WSL
+
+**Step 2: Configure WSL to use 1Password Agent**
 
 ```bash
-# 1. Login to Azure
-az login
-
-# 2. Run setup (installs DevPod, deploys VM, configures everything)
-./setup.sh
-
-# 3. Start coding!
-devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide vscode
+# Add to ~/.bashrc or ~/.zshrc
+export SSH_AUTH_SOCK=~/.1password/agent.sock
 ```
 
-### Manual Setup
+**Step 3: Configure SSH Host**
 
-If you prefer to run steps individually:
+Add to `~/.ssh/config`:
+```
+Host dev-vm
+    HostName <VM_IP>
+    User azureuser
+    IdentityAgent ~/.1password/agent.sock
+```
+
+**Step 4: Connect**
 
 ```bash
-./scripts/deploy.sh        # Deploy VM only
-./scripts/devpod-setup.sh  # Configure DevPod only
+ssh dev-vm
+# 1Password prompts for biometric/PIN authentication
+```
+
+The SSH key never touches disk - 1Password handles it securely with biometric unlock.
+
+### Alternative: Service Account Token (for automation)
+
+For headless/automated scenarios without 1Password Desktop:
+
+```bash
+# Install 1Password CLI
+curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+  sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+  sudo tee /etc/apt/sources.list.d/1password-cli.list
+sudo apt update && sudo apt install -y 1password-cli
+
+# Save token and SSH on-demand
+mkdir -p ~/.config/dev_env
+echo 'ops_eyJ...' > ~/.config/dev_env/op_token
+chmod 600 ~/.config/dev_env/op_token
+
+# SSH using op read (key never saved to disk)
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token)"
+ssh -i <(op read "op://DEV_CLI/SSH Key/private key") azureuser@<VM_IP>
+```
+
+## Quick Start (Azure Cloud Shell)
+
+The easiest way to deploy - no local setup required:
+
+**1. Open Azure Cloud Shell**
+- Go to [portal.azure.com](https://portal.azure.com)
+- Click the Cloud Shell icon (>_) in the top navigation bar
+- Select **Bash** if prompted
+
+**2. Deploy with one command**
+```bash
+export OP_SERVICE_ACCOUNT_TOKEN='ops_eyJ...'
+curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/bootstrap.sh | bash
+```
+
+**3. SSH to VM and start coding**
+```bash
+# From Cloud Shell (after deployment)
+ssh -i ~/.ssh/dev_env_key azureuser@<VM_IP>
+
+# On the VM - create a devpod
+~/dev_env/scripts/dp.sh up https://github.com/your/repo
+```
+
+### Alternative: Local Machine Setup
+
+If you have Azure CLI installed locally:
+
+```bash
+az login
+./setup.sh
 ./scripts/ssh-connect.sh   # SSH into VM
 ```
 
@@ -53,14 +141,14 @@ If you prefer to run steps individually:
 
 | Script | Description |
 |--------|-------------|
-| `setup.sh` | **One-command setup**: installs DevPod, deploys VM, configures everything |
-| `scripts/deploy.sh` | Deploy/update infrastructure, auto-generates SSH key |
-| `scripts/redeploy.sh` | Delete and recreate VM from scratch |
+| `scripts/bootstrap.sh` | **Azure Cloud Shell bootstrap** - installs tools, clones repo, deploys VM |
+| `setup.sh` | Deploy VM (requires az CLI login) |
+| `scripts/deploy.sh` | Deploy/update infrastructure, fetches SSH key from 1Password |
+| `scripts/dp.sh` | **DevPod wrapper** - run on VM to manage devpods |
 | `scripts/ssh-connect.sh` | SSH into the VM |
 | `scripts/start-vm.sh` | Start a deallocated VM |
 | `scripts/stop-vm.sh` | Stop and deallocate VM (saves compute costs) |
 | `scripts/sync-secrets.sh` | Sync 1Password service account token to VM |
-| `scripts/devpod-setup.sh` | Configure DevPod SSH provider for this VM |
 
 ## DevPod Integration
 
@@ -79,22 +167,25 @@ That's it! Now jump to [Usage](#usage).
 ### How It Works
 
 ```
-┌─────────────────┐         SSH          ┌─────────────────────────────┐
-│  Local Machine  │◄───────────────────►│        Azure VM         │
-│                 │                      │                              │
-│  - DevPod CLI   │                      │  ┌────────────────────────┐ │
-│  - VS Code      │                      │  │    DevContainer        │ │
-│  - Terminal     │                      │  │  ┌──────────────────┐  │ │
-│                 │                      │  │  │ Your Project     │  │ │
-└─────────────────┘                      │  │  │ + Dev Tools      │  │ │
-                                         │  │  │ + Dependencies   │  │ │
-                                         │  │  └──────────────────┘  │ │
-                                         │  └────────────────────────┘ │
-                                         │         Docker              │
-                                         └─────────────────────────────┘
+┌─────────────────┐                      ┌─────────────────────────────────┐
+│  Azure Cloud    │         SSH          │           Azure VM              │
+│  Shell / Local  │◄───────────────────►│                                 │
+│                 │                      │  - DevPod CLI (dp.sh)           │
+│  - Deploy VM    │                      │  - Docker                       │
+│  - SSH to VM    │                      │  - dev_env repo                 │
+│                 │                      │                                 │
+└─────────────────┘                      │  ┌───────────────────────────┐  │
+                                         │  │    DevPod Container       │  │
+┌─────────────────┐      Tailscale SSH   │  │  ┌─────────────────────┐  │  │
+│  VS Code /      │◄────────────────────►│  │  │ Your Project        │  │  │
+│  Terminal       │                      │  │  │ + Dev Tools         │  │  │
+│                 │                      │  │  │ + Tailscale SSH     │  │  │
+└─────────────────┘                      │  │  └─────────────────────┘  │  │
+                                         │  └───────────────────────────┘  │
+                                         └─────────────────────────────────┘
 ```
 
-Your code runs in a container on the VM, but you edit locally with full IDE support.
+DevPods are managed **on the VM** using `~/dev_env/scripts/dp.sh`. Each devpod container gets its own Tailscale IP for direct SSH access.
 
 ### Prerequisites
 
@@ -139,83 +230,56 @@ More info: https://devpod.sh/docs/getting-started/install
 
 ### Usage
 
-#### Terminal-Only Workflow (No IDE)
+All devpod commands run **on the VM**, not locally. SSH to the VM first.
+
+#### Create a DevPod Workspace
 
 ```bash
-# 1. Create workspace from a GitHub repo
-devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide none
+# SSH to the VM
+./scripts/ssh-connect.sh
 
-# 2. SSH into the workspace
-devpod ssh your-repo
+# On the VM: create workspace from GitHub repo
+~/dev_env/scripts/dp.sh up https://github.com/your/repo
 
-# 3. You're now inside the devcontainer on your VM - code away!
-#    The repo is at /workspaces/your-repo
+# SSH into the devpod container
+~/dev_env/scripts/dp.sh ssh your-repo
 ```
 
 **Full example session:**
 ```bash
-$ devpod up github.com/microsoft/vscode-remote-try-go --provider ssh --provider-option HOST=dev-vm --ide none
+$ ./scripts/ssh-connect.sh
+azureuser@vm-dev:~$ ~/dev_env/scripts/dp.sh up https://github.com/microsoft/vscode-remote-try-go
 # ... builds container ...
 
-$ devpod ssh vscode-remote-try-go
-root@devcontainer:/workspaces/vscode-remote-try-go# go run server.go
+azureuser@vm-dev:~$ ~/dev_env/scripts/dp.sh ssh vscode-remote-try-go
+vscode@devcontainer:/workspaces/vscode-remote-try-go$ go run server.go
 ```
 
-#### With VS Code
+#### Connect via Tailscale (Recommended)
+
+Each devpod gets a Tailscale IP. Connect directly from anywhere:
 
 ```bash
-# Opens VS Code connected to the devcontainer
-devpod up github.com/your/repo --provider ssh --provider-option HOST=dev-vm --ide vscode
+# Find the devpod's Tailscale IP (named devpod-<workspace>)
+ssh root@devpod-myproject
+su - vscode
+dev  # load shell environment
 ```
 
-#### From Local Folder
-
-```bash
-# Syncs local folder to VM and creates devcontainer
-devpod up ./my-project --provider ssh --provider-option HOST=dev-vm --ide none
-
-# Then connect
-devpod ssh my-project
-```
-
-#### Port Forwarding
-
-Ports defined in devcontainer.json are **automatically forwarded**:
-
-```json
-{
-  "forwardPorts": [3000, 5432]
-}
-```
-
-```bash
-devpod ssh my-workspace
-# localhost:3000 and localhost:5432 just work
-```
-
-**Ad-hoc forwarding** (for ports not in devcontainer.json):
-
-```bash
-devpod ssh my-workspace -L 8080:localhost:8080
-```
-
-#### Manage Workspaces
+#### Manage Workspaces (on VM)
 
 ```bash
 # List all workspaces
-devpod list
+~/dev_env/scripts/dp.sh list
 
 # SSH into existing workspace
-devpod ssh my-workspace
+~/dev_env/scripts/dp.sh ssh my-workspace
 
-# Stop workspace (container stops, data preserved)
-devpod stop my-workspace
-
-# Start stopped workspace
-devpod up my-workspace --ide none
+# Rebuild workspace (recreate container)
+~/dev_env/scripts/dp.sh rebuild my-workspace
 
 # Delete workspace completely
-devpod delete my-workspace
+~/dev_env/scripts/dp.sh delete my-workspace
 ```
 
 ### devcontainer.json Example

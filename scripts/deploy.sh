@@ -10,6 +10,7 @@ SSH_USER="azureuser"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../infra"
 ENV_FILE="${SCRIPT_DIR}/../.env"
+OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 
 echo "=== Azure Dev VM Deployment ==="
 
@@ -25,11 +26,38 @@ if ! az account show &> /dev/null; then
     exit 1
 fi
 
-# Generate SSH key if it doesn't exist
-if [ ! -f "${SSH_KEY_PATH}" ]; then
-    echo "Generating SSH key at ${SSH_KEY_PATH}..."
-    ssh-keygen -t ed25519 -f "${SSH_KEY_PATH}" -N "" -C "dev-env-vm"
-    echo "SSH key generated."
+# Get SSH key - prefer 1Password, fall back to local generation
+SSH_FROM_OP=false
+if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
+    echo "Fetching SSH key from 1Password..."
+    export OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_TOKEN_FILE")"
+
+    SSH_PRIVATE=$(op read "op://DEV_CLI/SSH Key/private key" 2>/dev/null || true)
+    SSH_PUBLIC=$(op read "op://DEV_CLI/SSH Key/public key" 2>/dev/null || true)
+
+    if [ -n "$SSH_PRIVATE" ] && [ -n "$SSH_PUBLIC" ]; then
+        echo "Using SSH key from 1Password"
+        mkdir -p "$(dirname "${SSH_KEY_PATH}")"
+        echo "$SSH_PRIVATE" > "${SSH_KEY_PATH}"
+        echo "$SSH_PUBLIC" > "${SSH_KEY_PATH}.pub"
+        chmod 600 "${SSH_KEY_PATH}"
+        chmod 644 "${SSH_KEY_PATH}.pub"
+        SSH_FROM_OP=true
+    else
+        echo "SSH key not found in 1Password (op://DEV_CLI/SSH Key)"
+    fi
+fi
+
+# Fall back to local key generation
+if [ "$SSH_FROM_OP" = false ]; then
+    if [ ! -f "${SSH_KEY_PATH}" ]; then
+        echo "Generating SSH key at ${SSH_KEY_PATH}..."
+        ssh-keygen -t ed25519 -f "${SSH_KEY_PATH}" -N "" -C "dev-env-vm"
+        echo "SSH key generated."
+        echo ""
+        echo "TIP: Store this key in 1Password for use from other machines:"
+        echo "  Create SSH Key item named 'SSH Key' in vault DEV_CLI"
+    fi
 fi
 
 # Read SSH public key
@@ -126,14 +154,48 @@ else
 fi
 
 # Sync secrets if available locally
-if [ -f "${HOME}/.config/shell-bootstrap/secrets.env" ] || command -v atuin &>/dev/null; then
+if [ -f "${HOME}/.config/dev_env/op_token" ]; then
     echo ""
     "${SCRIPT_DIR}/sync-secrets.sh" || echo "Warning: Secret sync failed (VM may still be initializing)"
+
+    # Set up git credential helper and clone dev_env repo
+    echo ""
+    echo "=== Setting up dev_env on VM ==="
+    $SSH_CMD bash -s <<'SETUP_EOF'
+set -e
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
+
+# Set up git credential helper using gh CLI with PAT from 1Password
+GITHUB_PAT=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null || true)
+if [ -n "$GITHUB_PAT" ]; then
+    echo "$GITHUB_PAT" | gh auth login --with-token
+    gh auth setup-git
+    echo "✓ GitHub CLI authenticated"
+else
+    echo "✗ GitHub PAT not found in 1Password - manual gh auth login required"
+    exit 1
+fi
+
+# Clone dev_env repo if not exists
+if [ ! -d ~/dev_env ]; then
+    echo "Cloning dev_env repo..."
+    git clone https://github.com/kirderfg/dev_env.git ~/dev_env
+    echo "✓ dev_env cloned to ~/dev_env"
+else
+    echo "✓ dev_env already exists at ~/dev_env"
+    cd ~/dev_env && git pull --ff-only || true
+fi
+SETUP_EOF
+else
+    echo ""
+    echo "Warning: No 1Password token found at ~/.config/dev_env/op_token"
+    echo "Cannot set up dev_env repo automatically."
 fi
 
 echo ""
 echo "VM ready! Connect with: ./scripts/ssh-connect.sh"
 echo ""
-echo "=== First time setup on VM ==="
-echo "1. gh auth login        # Login to GitHub CLI"
-echo "2. gh auth setup-git    # Configure git to use gh for auth"
+echo "=== DevPod Usage ==="
+echo "SSH to VM and run devpods with:"
+echo "  ~/dev_env/scripts/dp.sh up https://github.com/user/repo"
+echo "  ~/dev_env/scripts/dp.sh list"

@@ -57,7 +57,7 @@ Examples:
 The script automatically:
 - Injects OP_SERVICE_ACCOUNT_TOKEN from ~/.config/dev_env/op_token
 - Sets SHELL_BOOTSTRAP_NONINTERACTIVE=1 for container setup
-- Uses the 'ssh' provider with HOST=dev-vm by default
+- Uses the 'docker' provider (local Docker on this VM)
 
 EOF
     exit 0
@@ -85,8 +85,7 @@ main() {
             # Build devpod command with token injection
             local devpod_args=(
                 "up" "$repo"
-                "--provider" "ssh"
-                "--provider-option" "HOST=dev-vm"
+                "--provider" "docker"
                 "--git-clone-recursive-submodules"
             )
 
@@ -118,8 +117,7 @@ main() {
             # Build devpod command with recreate flag
             local devpod_args=(
                 "up" "$workspace"
-                "--provider" "ssh"
-                "--provider-option" "HOST=dev-vm"
+                "--provider" "docker"
                 "--recreate"
                 "--git-clone-recursive-submodules"
             )

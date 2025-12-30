@@ -3,25 +3,13 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
+OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 
 echo "=== Dev Environment Setup ==="
 echo ""
 
-# Track what we need to do
-NEED_DEVPOD=false
-NEED_VM=false
-
-# Check DevPod
-if command -v devpod &> /dev/null; then
-    echo "[OK] DevPod installed: $(devpod version 2>/dev/null | head -1)"
-else
-    echo "[--] DevPod not installed"
-    NEED_DEVPOD=true
-fi
-
 # Check Azure CLI
 if ! command -v az &> /dev/null; then
-    echo ""
     echo "Error: Azure CLI is not installed."
     echo "Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
     exit 1
@@ -29,12 +17,20 @@ fi
 
 # Check Azure login
 if ! az account show &> /dev/null; then
-    echo ""
     echo "Error: Not logged in to Azure. Run 'az login' first."
     exit 1
 fi
 
+# Check for 1Password token (required for full automation)
+if [ -f "$OP_TOKEN_FILE" ]; then
+    echo "[OK] 1Password token found"
+else
+    echo "[--] 1Password token not found at $OP_TOKEN_FILE"
+    echo "     GitHub auth and dev_env clone will need to be done manually on the VM"
+fi
+
 # Load env file if exists
+NEED_VM=false
 if [ -f "${ENV_FILE}" ]; then
     source "${ENV_FILE}"
 fi
@@ -55,40 +51,6 @@ fi
 
 echo ""
 
-# Install DevPod if needed
-if [ "$NEED_DEVPOD" = true ]; then
-    echo "Installing DevPod CLI..."
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64)  DEVPOD_ARCH="amd64" ;;
-        aarch64) DEVPOD_ARCH="arm64" ;;
-        arm64)   DEVPOD_ARCH="arm64" ;;
-        *)
-            echo "Error: Unsupported architecture: $ARCH"
-            exit 1
-            ;;
-    esac
-
-    # Install to ~/.local/bin (no sudo required)
-    mkdir -p "${HOME}/.local/bin"
-    curl -L -o /tmp/devpod "https://github.com/loft-sh/devpod/releases/latest/download/devpod-linux-${DEVPOD_ARCH}"
-    install -m 0755 /tmp/devpod "${HOME}/.local/bin/devpod"
-    rm -f /tmp/devpod
-
-    # Add to PATH if not already there
-    if [[ ":$PATH:" != *":${HOME}/.local/bin:"* ]]; then
-        export PATH="${HOME}/.local/bin:${PATH}"
-        echo "Added ~/.local/bin to PATH for this session"
-        echo ""
-        echo "To make permanent, add to your shell profile:"
-        echo "  echo 'export PATH=\"\${HOME}/.local/bin:\${PATH}\"' >> ~/.bashrc"
-        echo ""
-    fi
-
-    echo "DevPod installed: $(devpod version 2>/dev/null | head -1)"
-    echo ""
-fi
-
 # Deploy VM if needed
 if [ "$NEED_VM" = true ]; then
     echo "Deploying VM..."
@@ -96,15 +58,15 @@ if [ "$NEED_VM" = true ]; then
     echo ""
 fi
 
-# Configure DevPod SSH provider
-echo "Configuring DevPod..."
-"${SCRIPT_DIR}/scripts/devpod-setup.sh"
-
 echo ""
 echo "=== Setup Complete ==="
 echo ""
-echo "You're ready to use DevPod with your dev VM!"
+echo "Your dev VM is ready! DevPod and dev_env are installed on the VM."
 echo ""
-echo "Try it out:"
-echo "  devpod up github.com/microsoft/vscode-remote-try-go --provider ssh --option HOST=dev-vm --ide vscode"
+echo "Connect to the VM:"
+echo "  ./scripts/ssh-connect.sh"
+echo ""
+echo "Then run devpods with:"
+echo "  ~/dev_env/scripts/dp.sh up https://github.com/user/repo"
+echo "  ~/dev_env/scripts/dp.sh list"
 echo ""

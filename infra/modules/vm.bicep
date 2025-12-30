@@ -94,6 +94,12 @@ runcmd:
   - su - azureuser -c 'git config --global user.email "fredrik@thegustavssons.se"'
   - su - azureuser -c 'git config --global init.defaultBranch main'
   - su - azureuser -c 'git config --global pull.rebase true'
+  # DevPod CLI
+  - curl -L -o /tmp/devpod "https://github.com/loft-sh/devpod/releases/latest/download/devpod-linux-amd64"
+  - install -m 0755 /tmp/devpod /usr/local/bin/devpod
+  - rm -f /tmp/devpod
+  # Add Docker provider to DevPod for azureuser
+  - su - azureuser -c 'devpod provider add docker --silent 2>/dev/null || true'
   # Shell-bootstrap for nice prompt (runs as azureuser)
   # NOTE: Must download first then run - piping to bash breaks interactive prompts
   # Secrets will be loaded later via 1Password when sync-secrets.sh is run
