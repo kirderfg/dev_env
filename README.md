@@ -43,66 +43,33 @@ A cost-effective Azure VM for container development in Sweden Central, with DevP
 3. Grant access to the `DEV_CLI` vault
 4. Copy the token (starts with `ops_eyJ...`)
 
-### Local WSL Setup (Windows) - SSH with 1Password Desktop
+### Connecting to the VM
 
-Use 1Password Desktop's SSH Agent for secure, biometric-authenticated SSH access.
+The VM has **no public SSH access** - all connections go through Tailscale.
 
-**Step 1: Enable 1Password SSH Agent (Windows)**
+**Step 1: Install Tailscale on your machine**
 
-1. Open 1Password Desktop app
-2. Go to Settings → Developer
-3. Enable **SSH Agent**
-4. Enable **Use the SSH agent** for WSL
+- Windows/Mac/Linux: [tailscale.com/download](https://tailscale.com/download)
+- iPhone/Android: App Store / Play Store
 
-**Step 2: Configure WSL to use 1Password Agent**
+**Step 2: Configure SSH (optional, for convenience)**
 
-```bash
-# Add to ~/.bashrc or ~/.zshrc
-export SSH_AUTH_SOCK=~/.1password/agent.sock
-```
-
-**Step 3: Configure SSH Host**
-
-Add to `~/.ssh/config` (uses Tailscale hostname, not public IP):
+Add to `~/.ssh/config`:
 ```
 Host dev-vm
     HostName dev-vm
     User azureuser
-    IdentityAgent ~/.1password/agent.sock
 ```
 
-**Step 4: Connect via Tailscale**
+**Step 3: Connect**
 
 ```bash
 ssh dev-vm
-# 1Password prompts for biometric/PIN authentication
-# Connection goes through Tailscale (no public SSH port)
+# Or directly:
+ssh azureuser@dev-vm
 ```
 
-The SSH key never touches disk - 1Password handles it securely with biometric unlock.
-The VM has no public SSH access - all connections go through Tailscale's encrypted mesh network.
-
-### Alternative: Service Account Token (for automation)
-
-For headless/automated scenarios without 1Password Desktop:
-
-```bash
-# Install 1Password CLI
-curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
-  sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
-  sudo tee /etc/apt/sources.list.d/1password-cli.list
-sudo apt update && sudo apt install -y 1password-cli
-
-# Save token and SSH on-demand
-mkdir -p ~/.config/dev_env
-echo 'ops_eyJ...' > ~/.config/dev_env/op_token
-chmod 600 ~/.config/dev_env/op_token
-
-# SSH using op read (key never saved to disk)
-export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token)"
-ssh -i <(op read "op://DEV_CLI/dev-vm-key/private key") azureuser@<VM_IP>
-```
+No SSH keys needed - Tailscale SSH handles authentication based on your Tailscale identity.
 
 ## Quick Start (Azure Cloud Shell)
 
