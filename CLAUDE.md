@@ -34,15 +34,26 @@ The `dp` script automatically:
 
 ## DevContainer Template
 
-When creating or updating project devcontainers, **ALWAYS use the template from this repo**:
-- `templates/devcontainer/devcontainer.json`
-- `templates/devcontainer/onCreate.sh`
-- `templates/devcontainer/postStart.sh`
+Projects should use the shared template via **git submodule** (preferred) or copy files directly.
 
-### Copying template to a project
+### Option 1: Git Submodule (Preferred)
 ```bash
-cp templates/devcontainer/*.sh /path/to/project/.devcontainer/
-cp templates/devcontainer/devcontainer.json /path/to/project/.devcontainer/
+cd /path/to/project
+git submodule add https://github.com/kirderfg/devcontainer-template.git .devcontainer
+git commit -m "Add devcontainer template as submodule"
+git push
+```
+
+To update the template in a project:
+```bash
+git submodule update --remote .devcontainer
+git commit -m "Update devcontainer template"
+```
+
+### Option 2: Copy files directly
+```bash
+cp ~/dev_env/templates/devcontainer/*.sh /path/to/project/.devcontainer/
+cp ~/dev_env/templates/devcontainer/devcontainer.json /path/to/project/.devcontainer/
 ```
 
 ### What the template provides
@@ -92,6 +103,25 @@ Devices are named `devpod-<workspace-name>`, e.g.:
 
 ### Tailscale logs
 Tailscale daemon output is redirected to `/tmp/tailscaled.log` to prevent devpod from appearing to hang.
+
+### Managing Tailscale devices
+The template automatically cleans up old devices with the same name when redeploying.
+
+To manually list/clean devices:
+```bash
+# List all devpod devices (run from inside a container)
+source ~/.config/dev_env/init.sh
+TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key")
+curl -s -H "Authorization: Bearer $TAILSCALE_API_KEY" \
+  "https://api.tailscale.com/api/v2/tailnet/-/devices" | \
+  jq -r '.devices[] | select(.name | startswith("devpod-")) | "\(.name) \(.id)"'
+
+# Delete a specific device by ID
+curl -s -X DELETE -H "Authorization: Bearer $TAILSCALE_API_KEY" \
+  "https://api.tailscale.com/api/v2/device/<device-id>"
+```
+
+**Important**: The `api_key` in 1Password is required for automatic cleanup. Without it, Tailscale will append numbers (e.g., `devpod-shredder-1`, `devpod-shredder-2`) when devices already exist.
 
 ## 1Password Secrets Required
 
