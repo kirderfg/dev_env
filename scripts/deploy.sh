@@ -65,13 +65,29 @@ if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
     SSH_PUBLIC=$(op read "op://DEV_CLI/SSH Key/public key" 2>/dev/null || true)
 
     if [ -n "$SSH_PRIVATE" ] && [ -n "$SSH_PUBLIC" ]; then
-        echo "Using SSH key from 1Password"
         mkdir -p "$(dirname "${SSH_KEY_PATH}")"
-        echo "$SSH_PRIVATE" > "${SSH_KEY_PATH}"
-        echo "$SSH_PUBLIC" > "${SSH_KEY_PATH}.pub"
-        chmod 600 "${SSH_KEY_PATH}"
-        chmod 644 "${SSH_KEY_PATH}.pub"
-        SSH_FROM_OP=true
+
+        # Check if key is in correct OpenSSH format
+        if echo "$SSH_PRIVATE" | grep -q "BEGIN OPENSSH PRIVATE KEY"; then
+            echo "Using SSH key from 1Password"
+            printf '%s\n' "$SSH_PRIVATE" > "${SSH_KEY_PATH}"
+            printf '%s\n' "$SSH_PUBLIC" > "${SSH_KEY_PATH}.pub"
+            chmod 600 "${SSH_KEY_PATH}"
+            chmod 644 "${SSH_KEY_PATH}.pub"
+            SSH_FROM_OP=true
+        else
+            echo ""
+            echo "ERROR: SSH key in 1Password is in wrong format (PKCS#8)."
+            echo "SSH requires OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----)."
+            echo ""
+            echo "To fix, generate a new key and update 1Password:"
+            echo "  ssh-keygen -t ed25519 -f /tmp/newkey -N '' -C 'dev-env-vm'"
+            echo "  cat /tmp/newkey      # Copy to 'private key' field"
+            echo "  cat /tmp/newkey.pub  # Copy to 'public key' field"
+            echo "  rm /tmp/newkey /tmp/newkey.pub"
+            echo ""
+            exit 1
+        fi
     else
         echo "SSH key not found in 1Password (op://DEV_CLI/SSH Key)"
     fi
