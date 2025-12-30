@@ -18,57 +18,6 @@ warn() { echo -e "${YELLOW}[devpod]${NC} $1"; }
 error() { echo -e "${RED}[devpod]${NC} $1" >&2; }
 
 OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
-WORKSPACE_DIR="${HOME}/.devpod-workspaces"
-
-# Update submodules to latest in a repo
-update_submodules() {
-    local repo_path="$1"
-    if [[ -f "$repo_path/.gitmodules" ]]; then
-        log "Updating submodules to latest..."
-        (cd "$repo_path" && git submodule update --init --remote --merge 2>/dev/null) || warn "Submodule update failed (non-fatal)"
-    fi
-}
-
-# Clone repo and update submodules, return local path
-prepare_repo() {
-    local repo="$1"
-
-    # If it's already a local path, just update submodules in place
-    if [[ -d "$repo" ]]; then
-        update_submodules "$repo"
-        echo "$repo"
-        return 0
-    fi
-
-    # For URLs, clone to workspace dir and update submodules
-    if [[ "$repo" =~ ^(https?://|git@|github\.com) ]]; then
-        # Normalize github.com/user/repo to full URL
-        if [[ "$repo" =~ ^github\.com ]]; then
-            repo="https://$repo"
-        fi
-
-        # Extract workspace name from repo URL
-        local ws_name=$(basename "$repo" .git)
-        local local_path="$WORKSPACE_DIR/$ws_name"
-
-        mkdir -p "$WORKSPACE_DIR"
-
-        if [[ -d "$local_path" ]]; then
-            log "Updating existing clone at $local_path..."
-            (cd "$local_path" && git fetch origin && git reset --hard origin/main 2>/dev/null || git reset --hard origin/master) || true
-        else
-            log "Cloning $repo to $local_path..."
-            git clone --recursive "$repo" "$local_path"
-        fi
-
-        update_submodules "$local_path"
-        echo "$local_path"
-        return 0
-    fi
-
-    # Unknown format, return as-is
-    echo "$repo"
-}
 
 # Load 1Password token
 load_op_token() {
@@ -106,7 +55,6 @@ Examples:
   $(basename "$0") list
 
 The script automatically:
-- Clones repos to ~/.devpod-workspaces/ and updates submodules to latest
 - Injects OP_SERVICE_ACCOUNT_TOKEN from ~/.config/dev_env/op_token
 - Sets SHELL_BOOTSTRAP_NONINTERACTIVE=1 for container setup
 - Uses the 'docker' provider (local Docker on this VM)
@@ -134,24 +82,11 @@ main() {
             local repo="$1"
             shift
 
-            # Prepare repo (clone if URL, update submodules to latest)
-            local local_path
-            local_path=$(prepare_repo "$repo")
-
-            # Extract workspace name
-            local ws_name=$(basename "$local_path")
-
-            # Delete existing workspace to ensure clean deploy from local path
-            if devpod list 2>/dev/null | grep -q "^$ws_name "; then
-                log "Removing existing workspace '$ws_name' for fresh deploy..."
-                devpod delete "$ws_name" --force 2>/dev/null || true
-            fi
-
             # Build devpod command with token injection
             local devpod_args=(
-                "up" "$local_path"
+                "up" "$repo"
                 "--provider" "docker"
-                "--id" "$ws_name"
+                "--git-clone-recursive-submodules"
             )
 
             # Add workspace-env for 1Password token
@@ -166,7 +101,7 @@ main() {
             # Add any additional arguments passed by user
             devpod_args+=("$@")
 
-            log "Creating workspace '$ws_name' from $local_path..."
+            log "Creating workspace for $repo..."
             devpod "${devpod_args[@]}"
             ;;
 
@@ -179,27 +114,12 @@ main() {
             local workspace="$1"
             shift
 
-            # For rebuild, update the local clone and submodules
-            local ws_path="$WORKSPACE_DIR/$workspace"
-            if [[ -d "$ws_path" ]]; then
-                log "Pulling latest changes..."
-                (cd "$ws_path" && git fetch origin && git reset --hard origin/main 2>/dev/null || git reset --hard origin/master) || true
-                update_submodules "$ws_path"
-            else
-                error "Workspace source not found at $ws_path"
-                error "Use 'dp up <repo>' to create a new workspace"
-                exit 1
-            fi
-
-            # Delete and recreate from updated local path
-            log "Removing existing workspace for rebuild..."
-            devpod delete "$workspace" --force 2>/dev/null || true
-
-            # Build devpod command
+            # Build devpod command with recreate flag
             local devpod_args=(
-                "up" "$ws_path"
+                "up" "$workspace"
                 "--provider" "docker"
-                "--id" "$workspace"
+                "--recreate"
+                "--git-clone-recursive-submodules"
             )
 
             # Add workspace-env for 1Password token
@@ -211,7 +131,7 @@ main() {
             devpod_args+=("--workspace-env" "SHELL_BOOTSTRAP_NONINTERACTIVE=1")
             devpod_args+=("$@")
 
-            log "Rebuilding workspace $workspace from $ws_path..."
+            log "Rebuilding workspace $workspace..."
             devpod "${devpod_args[@]}"
             ;;
 
