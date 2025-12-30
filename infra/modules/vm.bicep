@@ -25,7 +25,9 @@ param osDiskSizeGB int = 64
 param tailscaleAuthKey string = ''
 
 // Cloud-init configuration - minimal VM with Docker + shell-bootstrap
-var cloudInitConfig = tailscaleAuthKey == '' ? cloudInitConfigBase : replace(cloudInitConfigBase, '# TAILSCALE_AUTH_PLACEHOLDER', 'sudo tailscale up --authkey=\'${tailscaleAuthKey}\' --ssh --hostname=dev-vm')
+// If tailscale auth key provided, add it as a base64-encoded file to avoid YAML escaping issues
+var tailscaleAuthKeyBase64 = tailscaleAuthKey == '' ? '' : base64(tailscaleAuthKey)
+var cloudInitConfig = tailscaleAuthKey == '' ? cloudInitConfigBase : replace(replace(cloudInitConfigBase, '# TAILSCALE_AUTH_FILE_PLACEHOLDER', '  - path: /tmp/tailscale-auth-key\n    encoding: b64\n    content: ${tailscaleAuthKeyBase64}\n    permissions: \'0600\''), '# TAILSCALE_AUTH_PLACEHOLDER', '- sudo tailscale up --authkey="$(cat /tmp/tailscale-auth-key)" --ssh --hostname=dev-vm && rm -f /tmp/tailscale-auth-key')
 
 var cloudInitConfigBase = '''
 #cloud-config
@@ -70,6 +72,7 @@ write_files:
       Components: stable
       Signed-By: /etc/apt/keyrings/docker.asc
       EOF
+# TAILSCALE_AUTH_FILE_PLACEHOLDER
 
 runcmd:
   # 1Password CLI keyring
