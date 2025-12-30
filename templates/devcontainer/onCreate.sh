@@ -232,6 +232,7 @@ log "Configuring git..."
 git config --global init.defaultBranch main
 git config --global pull.rebase true
 git config --global fetch.prune true
+git config --global credential.helper '!gh auth git-credential'
 
 # Setup gh CLI with token if available
 if [ -n "$GITHUB_TOKEN" ]; then
