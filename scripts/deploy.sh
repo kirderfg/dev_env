@@ -62,14 +62,19 @@ SSH_PUBLIC_KEY=$(cat "${TEMP_KEY}.pub")
 rm -f "$TEMP_KEY" "${TEMP_KEY}.pub"
 echo "SSH key generated (throwaway - access is via Tailscale)"
 
-# Get Tailscale auth key from 1Password
+# Get Tailscale keys from 1Password
 TAILSCALE_AUTH_KEY=""
+TAILSCALE_API_KEY=""
 if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
-    echo "Fetching Tailscale auth key from 1Password..."
+    echo "Fetching Tailscale keys from 1Password..."
     export OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_TOKEN_FILE")"
     TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || true)
+    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null || true)
     if [ -n "$TAILSCALE_AUTH_KEY" ]; then
         echo "Tailscale auth key found - VM will auto-connect to Tailscale"
+        if [ -n "$TAILSCALE_API_KEY" ]; then
+            echo "Tailscale API key found - old 'dev-vm' device will be removed before registering"
+        fi
     else
         echo "WARNING: Tailscale auth key not found in 1Password"
         echo "VM will not auto-connect to Tailscale. Run setup-tailscale.sh manually after deploy."
@@ -95,6 +100,9 @@ DEPLOY_PARAMS=(
 )
 if [ -n "$TAILSCALE_AUTH_KEY" ]; then
     DEPLOY_PARAMS+=(tailscaleAuthKey="${TAILSCALE_AUTH_KEY}")
+fi
+if [ -n "$TAILSCALE_API_KEY" ]; then
+    DEPLOY_PARAMS+=(tailscaleApiKey="${TAILSCALE_API_KEY}")
 fi
 az deployment group create "${DEPLOY_PARAMS[@]}" --output table
 

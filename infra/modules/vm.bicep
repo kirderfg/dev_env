@@ -24,10 +24,22 @@ param osDiskSizeGB int = 64
 @secure()
 param tailscaleAuthKey string = ''
 
+@description('Tailscale API key for removing old devices')
+@secure()
+param tailscaleApiKey string = ''
+
 // Cloud-init configuration - minimal VM with Docker + shell-bootstrap
 // If tailscale auth key provided, add it as a base64-encoded file to avoid YAML escaping issues
 var tailscaleAuthKeyBase64 = tailscaleAuthKey == '' ? '' : base64(tailscaleAuthKey)
-var cloudInitConfig = tailscaleAuthKey == '' ? cloudInitConfigBase : replace(replace(cloudInitConfigBase, '# TAILSCALE_AUTH_FILE_PLACEHOLDER', '  - path: /tmp/tailscale-auth-key\n    encoding: b64\n    content: ${tailscaleAuthKeyBase64}\n    permissions: \'0600\''), '# TAILSCALE_AUTH_PLACEHOLDER', '- sudo tailscale up --authkey="$(cat /tmp/tailscale-auth-key)" --ssh --hostname=dev-vm && rm -f /tmp/tailscale-auth-key')
+var tailscaleApiKeyBase64 = tailscaleApiKey == '' ? '' : base64(tailscaleApiKey)
+
+// Build the write_files entries for Tailscale keys
+var tailscaleFilesPlaceholder = tailscaleAuthKey == '' ? '' : '  - path: /tmp/tailscale-auth-key\n    encoding: b64\n    content: ${tailscaleAuthKeyBase64}\n    permissions: \'0600\'${tailscaleApiKey == '' ? '' : '\n  - path: /tmp/tailscale-api-key\n    encoding: b64\n    content: ${tailscaleApiKeyBase64}\n    permissions: \'0600\''}'
+
+// Build the runcmd for Tailscale setup (delete old device if API key available, then register)
+var tailscaleSetupCmd = tailscaleAuthKey == '' ? '' : '- |\n    if [ -f /tmp/tailscale-api-key ]; then\n      API_KEY=$(cat /tmp/tailscale-api-key)\n      DEVICE_ID=$(curl -s -H "Authorization: Bearer $API_KEY" "https://api.tailscale.com/api/v2/tailnet/-/devices" | grep -o \'"id":"[^"]*","name":"dev-vm"\' | head -1 | sed \'s/.*"id":"\\([^"]*\\)".*/\\1/\')\n      if [ -n "$DEVICE_ID" ]; then\n        curl -s -X DELETE -H "Authorization: Bearer $API_KEY" "https://api.tailscale.com/api/v2/device/$DEVICE_ID"\n        sleep 2\n      fi\n      rm -f /tmp/tailscale-api-key\n    fi\n    sudo tailscale up --authkey="$(cat /tmp/tailscale-auth-key)" --ssh --hostname=dev-vm\n    rm -f /tmp/tailscale-auth-key'
+
+var cloudInitConfig = tailscaleAuthKey == '' ? cloudInitConfigBase : replace(replace(cloudInitConfigBase, '# TAILSCALE_AUTH_FILE_PLACEHOLDER', tailscaleFilesPlaceholder), '# TAILSCALE_AUTH_PLACEHOLDER', tailscaleSetupCmd)
 
 var cloudInitConfigBase = '''
 #cloud-config

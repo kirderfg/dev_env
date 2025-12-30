@@ -23,6 +23,10 @@ param osDiskSizeGB int = 64
 @secure()
 param tailscaleAuthKey string = ''
 
+@description('Tailscale API key for removing old devices before registering')
+@secure()
+param tailscaleApiKey string = ''
+
 // Network module
 module network 'modules/network.bicep' = {
   name: 'network-deployment'
@@ -43,6 +47,7 @@ module vm 'modules/vm.bicep' = {
     nicId: network.outputs.nicId
     osDiskSizeGB: osDiskSizeGB
     tailscaleAuthKey: tailscaleAuthKey
+    tailscaleApiKey: tailscaleApiKey
   }
 }
 
