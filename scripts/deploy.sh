@@ -35,7 +35,7 @@ if [ -n "$VM_EXISTS" ]; then
     echo "WARNING: VM '${VM_NAME}' already exists in resource group '${RESOURCE_GROUP}'."
     echo "Cloud-init configuration cannot be changed on an existing VM."
     echo ""
-    read -p "Delete resource group and start fresh? (y/n): " -n 1 -r
+    read -p "Delete resource group and start fresh? (y/n): " -n 1 -r REPLY </dev/tty
     echo ""
 
     if [[ $REPLY =~ ^[Yy]$ ]]; then
