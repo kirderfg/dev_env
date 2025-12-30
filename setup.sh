@@ -2,7 +2,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${SCRIPT_DIR}/.env"
 OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 
 echo "=== Dev Environment Setup ==="
@@ -29,34 +28,10 @@ else
     echo "     GitHub auth and dev_env clone will need to be done manually on the VM"
 fi
 
-# Load env file if exists
-NEED_VM=false
-if [ -f "${ENV_FILE}" ]; then
-    source "${ENV_FILE}"
-fi
-
-# Check if VM exists
-if [ -n "${VM_NAME}" ] && [ -n "${RESOURCE_GROUP}" ]; then
-    VM_STATE=$(az vm show -g "${RESOURCE_GROUP}" -n "${VM_NAME}" --query "provisioningState" -o tsv 2>/dev/null | tr -d '\r' || echo "NotFound")
-    if [ "${VM_STATE}" = "Succeeded" ]; then
-        echo "[OK] VM exists: ${VM_NAME} (${VM_IP})"
-    else
-        echo "[--] VM not found or not ready"
-        NEED_VM=true
-    fi
-else
-    echo "[--] VM not deployed"
-    NEED_VM=true
-fi
-
 echo ""
 
-# Deploy VM if needed
-if [ "$NEED_VM" = true ]; then
-    echo "Deploying VM..."
-    "${SCRIPT_DIR}/scripts/deploy.sh"
-    echo ""
-fi
+# Always run deploy (it handles existing VM check with y/n prompt)
+"${SCRIPT_DIR}/scripts/deploy.sh"
 
 echo ""
 echo "=== Setup Complete ==="
