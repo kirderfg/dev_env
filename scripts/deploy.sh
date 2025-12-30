@@ -173,11 +173,17 @@ if [ -n "$TAILSCALE_AUTH_KEY" ]; then
         if [ -f "${HOME}/.config/dev_env/op_token" ]; then
             echo ""
             echo "=== Syncing secrets to VM ==="
-            scp -o StrictHostKeyChecking=accept-new "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:~/.config/dev_env/op_token" 2>/dev/null || {
-                $SSH_CMD "mkdir -p ~/.config/dev_env"
-                scp "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:~/.config/dev_env/op_token"
-            }
-            echo "✓ 1Password token synced"
+            # Create directory on VM first, then copy token
+            $SSH_CMD "mkdir -p ~/.config/dev_env && chmod 700 ~/.config/dev_env"
+            scp -o StrictHostKeyChecking=accept-new "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:.config/dev_env/op_token"
+            $SSH_CMD "chmod 600 ~/.config/dev_env/op_token"
+            # Verify token was copied
+            if $SSH_CMD "test -f ~/.config/dev_env/op_token"; then
+                echo "✓ 1Password token synced"
+            else
+                echo "✗ Failed to sync token"
+                exit 1
+            fi
 
             echo ""
             echo "=== Setting up dev_env on VM ==="
@@ -185,26 +191,31 @@ if [ -n "$TAILSCALE_AUTH_KEY" ]; then
 set -e
 export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
 
-# Set up git credential helper using gh CLI with PAT from 1Password
-GITHUB_PAT=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null || true)
-if [ -n "$GITHUB_PAT" ]; then
-    echo "$GITHUB_PAT" | gh auth login --with-token
-    gh auth setup-git
-    echo "✓ GitHub CLI authenticated"
-else
-    echo "✗ GitHub PAT not found in 1Password - manual gh auth login required"
-    exit 1
-fi
-
 # Clone dev_env repo if not exists
 if [ ! -d ~/dev_env ]; then
     echo "Cloning dev_env repo..."
-    git clone https://github.com/kirderfg/dev_env.git ~/dev_env
-    echo "✓ dev_env cloned to ~/dev_env"
+    # Use op to get GitHub PAT for initial clone
+    GITHUB_PAT=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null || true)
+    if [ -n "$GITHUB_PAT" ]; then
+        git clone https://${GITHUB_PAT}@github.com/kirderfg/dev_env.git ~/dev_env
+        echo "✓ dev_env cloned to ~/dev_env"
+    else
+        echo "✗ GitHub PAT not found - cannot clone dev_env"
+        exit 1
+    fi
 else
     echo "✓ dev_env already exists at ~/dev_env"
     cd ~/dev_env && git pull --ff-only || true
 fi
+
+# Re-run shell-bootstrap now that token is available
+# This configures: 1Password secrets, GitHub CLI, Atuin, git credentials
+echo ""
+echo "=== Running shell-bootstrap with 1Password token ==="
+curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh
+SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh
+rm -f /tmp/shell-bootstrap-install.sh
+echo "✓ Shell environment configured"
 SETUP_EOF
         fi
     else

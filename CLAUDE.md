@@ -42,8 +42,14 @@ If you prefer to run from a local machine with az CLI:
 This creates the VM with:
 - Docker and DevPod CLI pre-installed
 - 1Password CLI for secrets
-- GitHub CLI configured via 1Password PAT
+- Shell-bootstrap (zsh, starship, atuin, yazi, pet, etc.)
+- GitHub CLI authenticated via 1Password PAT
+- Atuin logged in via 1Password credentials
 - The `dev_env` repo cloned to `~/dev_env`
+
+**Two-phase setup:**
+1. **Cloud-init** (during VM creation): Installs packages and shell-bootstrap (tools only, no secrets)
+2. **deploy.sh post-setup**: Syncs 1Password token, re-runs shell-bootstrap to configure secrets, gh, atuin
 
 ## DevPod Deployment
 
@@ -117,28 +123,37 @@ cp ~/dev_env/templates/devcontainer/devcontainer.json /path/to/project/.devconta
 - **Pre-commit hooks** framework
 - **Git + GitHub CLI** configuration
 
-## Important: Container Users
+## Important: Users at Each Layer
 
-### Template uses `vscode` user
-The template uses Python image which has `vscode` as the default user (uid 1000).
-- `remoteUser: "vscode"` in devcontainer.json
+There are two different contexts with different users:
+
+### 1. The VM (dev-vm)
+- **User:** `azureuser`
+- **Access:** `ssh azureuser@dev-vm` via Tailscale
+- **Purpose:** Run devpod commands, manage containers
+- **No `vscode` user here** - it only exists inside containers
+
+### 2. Devpod Containers
+- **Default user:** `vscode` (from Python devcontainer image, uid 1000)
+- **Access via Tailscale SSH:** `ssh root@devpod-<workspace-name>`
+- **Access via devpod:** `~/dev_env/scripts/dp.sh ssh <workspace-name>`
 - Shell-bootstrap installs to `/home/vscode/`
 - The `dev` alias and all tools work for `vscode` user
 
-### Tailscale SSH logs in as `root`
-When you SSH via Tailscale (`ssh root@<tailscale-ip>`), you're logged in as root.
+### Tailscale SSH into containers logs in as `root`
+When you SSH via Tailscale to a container (`ssh root@devpod-<workspace>`), you're logged in as root.
 To use the full shell setup with `dev` alias:
 ```bash
-ssh root@<tailscale-ip>
+ssh root@devpod-<workspace-name>
 su - vscode
 dev
 ```
 
-### Common mistake: Wrong user
-If `dev` alias doesn't work, you're probably logged in as wrong user:
-- Check with `whoami`
-- Switch to vscode: `su - vscode`
-- Then run `dev`
+### Common mistake: Confusing VM and container
+If `su - vscode` fails with "user does not exist":
+- You're on the **VM**, not inside a container
+- The VM user is `azureuser`, not `vscode`
+- First SSH into a devpod container, then switch to vscode
 
 ## Tailscale Configuration
 
@@ -246,6 +261,12 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 - You're logged in as wrong user (root instead of vscode)
 - Run `su - vscode` then `dev`
 
+### `su: user vscode does not exist`
+- You're on the **VM**, not inside a devpod container
+- The `vscode` user only exists inside devpod containers
+- To enter a container: `~/dev_env/scripts/dp.sh ssh <workspace-name>`
+- Or via Tailscale: `ssh root@devpod-<workspace-name>`
+
 ### Tailscale device already exists
 - The template auto-removes old devices if API key is configured
 - Check 1Password for `op://DEV_CLI/Tailscale/api_key`
@@ -254,3 +275,16 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 - Check if `~/.config/shell-bootstrap/zshrc` exists
 - Check if block was added to `~/.zshrc`: `grep shell-bootstrap ~/.zshrc`
 - Re-run: `curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash`
+
+### gh/atuin not authenticated on VM
+Shell-bootstrap needs the 1Password token to configure services:
+```bash
+# Ensure token exists
+cat ~/.config/dev_env/op_token
+
+# Re-run shell-bootstrap with token
+export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token)"
+curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/sb.sh
+SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/sb.sh
+rm /tmp/sb.sh
+```
