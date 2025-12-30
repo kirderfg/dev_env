@@ -87,6 +87,7 @@ main() {
                 "up" "$repo"
                 "--provider" "ssh"
                 "--provider-option" "HOST=dev-vm"
+                "--git-clone-recursive-submodules"
             )
 
             # Add workspace-env for 1Password token
@@ -120,6 +121,7 @@ main() {
                 "--provider" "ssh"
                 "--provider-option" "HOST=dev-vm"
                 "--recreate"
+                "--git-clone-recursive-submodules"
             )
 
             # Add workspace-env for 1Password token
