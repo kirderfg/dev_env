@@ -177,8 +177,8 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 
 | Secret Path | Purpose | Required |
 |-------------|---------|----------|
-| `op://DEV_CLI/SSH Key/private key` | SSH private key for VM access | Yes |
-| `op://DEV_CLI/SSH Key/public key` | SSH public key for VM access | Yes |
+| `op://DEV_CLI/dev-vm-key/private key` | SSH private key for VM access | Yes |
+| `op://DEV_CLI/dev-vm-key/public key` | SSH public key for VM access | Yes |
 | `op://DEV_CLI/GitHub/PAT` | GitHub Personal Access Token (for cloning dev_env) | Yes |
 | `op://DEV_CLI/Tailscale/auth_key` | Tailscale auth key for device registration | Yes |
 | `op://DEV_CLI/Tailscale/api_key` | Tailscale API key for removing old devices | Yes |

@@ -33,7 +33,7 @@ A cost-effective Azure VM for container development in Sweden Central, with DevP
 
 | Item | Type | Fields | Purpose |
 |------|------|--------|---------|
-| `SSH Key` | SSH Key | `private key`, `public key` | VM SSH access |
+| `dev-vm-key` | SSH Key | `private key`, `public key` | VM SSH access |
 | `GitHub` | Login | `PAT` | Clone private repos |
 | `Tailscale` | Login | `auth_key`, `api_key` | Container networking |
 
@@ -100,7 +100,7 @@ chmod 600 ~/.config/dev_env/op_token
 
 # SSH using op read (key never saved to disk)
 export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token)"
-ssh -i <(op read "op://DEV_CLI/SSH Key/private key") azureuser@<VM_IP>
+ssh -i <(op read "op://DEV_CLI/dev-vm-key/private key") azureuser@<VM_IP>
 ```
 
 ## Quick Start (Azure Cloud Shell)

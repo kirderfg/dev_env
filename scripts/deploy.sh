@@ -61,8 +61,8 @@ if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
     echo "Fetching SSH key from 1Password..."
     export OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_TOKEN_FILE")"
 
-    SSH_PRIVATE=$(op read "op://DEV_CLI/SSH Key/private key" 2>/dev/null || true)
-    SSH_PUBLIC=$(op read "op://DEV_CLI/SSH Key/public key" 2>/dev/null || true)
+    SSH_PRIVATE=$(op read "op://DEV_CLI/dev-vm-key/private key" 2>/dev/null || true)
+    SSH_PUBLIC=$(op read "op://DEV_CLI/dev-vm-key/public key" 2>/dev/null || true)
 
     if [ -n "$SSH_PRIVATE" ] && [ -n "$SSH_PUBLIC" ]; then
         mkdir -p "$(dirname "${SSH_KEY_PATH}")"
@@ -89,7 +89,7 @@ if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
             exit 1
         fi
     else
-        echo "SSH key not found in 1Password (op://DEV_CLI/SSH Key)"
+        echo "SSH key not found in 1Password (op://DEV_CLI/dev-vm-key)"
     fi
 fi
 
