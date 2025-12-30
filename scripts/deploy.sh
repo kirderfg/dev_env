@@ -56,7 +56,7 @@ fi
 
 # Generate throwaway SSH key (required by Azure, but we use Tailscale for access)
 echo "Generating temporary SSH key for Azure..."
-TEMP_KEY=$(mktemp)
+TEMP_KEY=$(mktemp -u)  # -u creates name only, doesn't create file
 ssh-keygen -t ed25519 -f "$TEMP_KEY" -N "" -q -C "azure-deploy-temp"
 SSH_PUBLIC_KEY=$(cat "${TEMP_KEY}.pub")
 rm -f "$TEMP_KEY" "${TEMP_KEY}.pub"
