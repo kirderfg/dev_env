@@ -138,10 +138,20 @@ main() {
             local local_path
             local_path=$(prepare_repo "$repo")
 
+            # Extract workspace name
+            local ws_name=$(basename "$local_path")
+
+            # Delete existing workspace to ensure clean deploy from local path
+            if devpod list 2>/dev/null | grep -q "^$ws_name "; then
+                log "Removing existing workspace '$ws_name' for fresh deploy..."
+                devpod delete "$ws_name" --force 2>/dev/null || true
+            fi
+
             # Build devpod command with token injection
             local devpod_args=(
                 "up" "$local_path"
                 "--provider" "docker"
+                "--id" "$ws_name"
             )
 
             # Add workspace-env for 1Password token
@@ -156,7 +166,7 @@ main() {
             # Add any additional arguments passed by user
             devpod_args+=("$@")
 
-            log "Creating workspace for $repo..."
+            log "Creating workspace '$ws_name' from $local_path..."
             devpod "${devpod_args[@]}"
             ;;
 
@@ -169,19 +179,27 @@ main() {
             local workspace="$1"
             shift
 
-            # For rebuild, update submodules in the workspace dir if it exists
+            # For rebuild, update the local clone and submodules
             local ws_path="$WORKSPACE_DIR/$workspace"
             if [[ -d "$ws_path" ]]; then
                 log "Pulling latest changes..."
                 (cd "$ws_path" && git fetch origin && git reset --hard origin/main 2>/dev/null || git reset --hard origin/master) || true
                 update_submodules "$ws_path"
+            else
+                error "Workspace source not found at $ws_path"
+                error "Use 'dp up <repo>' to create a new workspace"
+                exit 1
             fi
 
-            # Build devpod command with recreate flag
+            # Delete and recreate from updated local path
+            log "Removing existing workspace for rebuild..."
+            devpod delete "$workspace" --force 2>/dev/null || true
+
+            # Build devpod command
             local devpod_args=(
-                "up" "$workspace"
+                "up" "$ws_path"
                 "--provider" "docker"
-                "--recreate"
+                "--id" "$workspace"
             )
 
             # Add workspace-env for 1Password token
@@ -193,7 +211,7 @@ main() {
             devpod_args+=("--workspace-env" "SHELL_BOOTSTRAP_NONINTERACTIVE=1")
             devpod_args+=("$@")
 
-            log "Rebuilding workspace $workspace..."
+            log "Rebuilding workspace $workspace from $ws_path..."
             devpod "${devpod_args[@]}"
             ;;
 
