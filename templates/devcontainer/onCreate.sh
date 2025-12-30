@@ -166,6 +166,18 @@ if ! command -v tailscale &> /dev/null; then
     curl -fsSL https://tailscale.com/install.sh | sh
 fi
 
+# Install Claude Code CLI for AI-assisted development
+if ! command -v claude &> /dev/null; then
+    log "Installing Claude Code CLI..."
+    curl -fsSL https://claude.ai/install.sh | bash
+    export PATH="$HOME/.claude/bin:$PATH"
+fi
+
+# Install Claude Code UI for web/mobile access
+log "Installing Claude Code UI..."
+npm install -g @siteboon/claude-code-ui pm2
+log "Claude Code UI installed (will start on postStart)"
+
 # Configure Tailscale if auth key available
 if [ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
     TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null) || true

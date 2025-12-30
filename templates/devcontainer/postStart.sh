@@ -43,4 +43,20 @@ if command -v tailscale &> /dev/null; then
     fi
 fi
 
+# Start Claude Code UI via PM2 (accessible via Tailscale on port 3001)
+if command -v claude-code-ui &> /dev/null && command -v pm2 &> /dev/null; then
+    if ! pm2 list 2>/dev/null | grep -q "claude-code-ui"; then
+        log "Starting Claude Code UI on port 3001..."
+        pm2 start claude-code-ui --name "claude-code-ui" --silent
+        if tailscale status &> /dev/null; then
+            TS_IP=$(tailscale ip -4 2>/dev/null || echo "unknown")
+            log "Claude Code UI: http://${TS_IP}:3001"
+        else
+            log "Claude Code UI: http://localhost:3001"
+        fi
+    else
+        log "Claude Code UI already running"
+    fi
+fi
+
 log "Ready!"

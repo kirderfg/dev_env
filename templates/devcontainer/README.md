@@ -8,6 +8,7 @@ A best-practices devcontainer configuration with security scanning, pre-commit h
 |-------|------|------|
 | API | FastAPI | 8000 |
 | Frontend | Node/Vite | 3000 |
+| Claude Code UI | Web interface | 3001 |
 | Container | Docker-in-Docker | - |
 
 ## What's Included
@@ -27,6 +28,13 @@ A best-practices devcontainer configuration with security scanning, pre-commit h
 - Black, Ruff, MyPy (Python)
 - ESLint, Prettier (JavaScript)
 - GitLens, Git Graph (VS Code)
+
+### AI-Assisted Development
+- **Claude Code CLI** - AI coding assistant in terminal
+- **Claude Code UI** - Web interface for Claude Code (port 3001)
+  - Access from iPhone, tablet, or any browser via Tailscale
+  - Manage sessions, chat interface, file explorer
+  - Runs automatically via PM2
 
 ### Security Tools
 - **Gitleaks** - Secret detection in commits
@@ -202,3 +210,43 @@ SKIP=mypy git commit -m "message"
 Authenticate in VS Code:
 1. Click Snyk icon in sidebar
 2. Click "Connect VS Code with Snyk"
+
+## Claude Code UI (Remote Access)
+
+Access Claude Code from your phone or any browser via Tailscale.
+
+### Access URL
+```
+http://<tailscale-ip>:3001
+```
+
+The Tailscale IP is shown on container startup, or run:
+```bash
+tailscale ip -4
+```
+
+### From iPhone/Mobile
+1. Install Tailscale app on your phone
+2. Connect to your tailnet
+3. Open browser to `http://devpod-<workspace>:3001`
+
+### Managing the Service
+```bash
+# Check status
+pm2 status
+
+# View logs
+pm2 logs claude-code-ui
+
+# Restart
+pm2 restart claude-code-ui
+
+# Stop
+pm2 stop claude-code-ui
+```
+
+### First-Time Setup
+On first launch, you may need to authenticate Claude Code:
+```bash
+claude login
+```
