@@ -26,6 +26,35 @@ if ! az account show &> /dev/null; then
     exit 1
 fi
 
+# Check if VM already exists
+echo "Checking for existing VM..."
+VM_EXISTS=$(az vm show --resource-group "${RESOURCE_GROUP}" --name "${VM_NAME}" --query "id" -o tsv 2>/dev/null || true)
+
+if [ -n "$VM_EXISTS" ]; then
+    echo ""
+    echo "WARNING: VM '${VM_NAME}' already exists in resource group '${RESOURCE_GROUP}'."
+    echo "Cloud-init configuration cannot be changed on an existing VM."
+    echo ""
+    read -p "Delete resource group and start fresh? (y/n): " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Deleting resource group ${RESOURCE_GROUP}..."
+        az group delete --name "${RESOURCE_GROUP}" --yes --no-wait
+
+        echo "Waiting for deletion to complete..."
+        while az group show --name "${RESOURCE_GROUP}" &>/dev/null; do
+            echo -n "."
+            sleep 5
+        done
+        echo ""
+        echo "Resource group deleted."
+    else
+        echo "Aborting. To update NSG rules only, use Azure Portal or az CLI directly."
+        exit 0
+    fi
+fi
+
 # Get SSH key - prefer 1Password, fall back to local generation
 SSH_FROM_OP=false
 if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
