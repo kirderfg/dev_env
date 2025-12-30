@@ -64,22 +64,24 @@ export SSH_AUTH_SOCK=~/.1password/agent.sock
 
 **Step 3: Configure SSH Host**
 
-Add to `~/.ssh/config`:
+Add to `~/.ssh/config` (uses Tailscale hostname, not public IP):
 ```
 Host dev-vm
-    HostName <VM_IP>
+    HostName dev-vm
     User azureuser
     IdentityAgent ~/.1password/agent.sock
 ```
 
-**Step 4: Connect**
+**Step 4: Connect via Tailscale**
 
 ```bash
 ssh dev-vm
 # 1Password prompts for biometric/PIN authentication
+# Connection goes through Tailscale (no public SSH port)
 ```
 
 The SSH key never touches disk - 1Password handles it securely with biometric unlock.
+The VM has no public SSH access - all connections go through Tailscale's encrypted mesh network.
 
 ### Alternative: Service Account Token (for automation)
 
@@ -118,14 +120,16 @@ export OP_SERVICE_ACCOUNT_TOKEN='ops_eyJ...'
 curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/bootstrap.sh | bash
 ```
 
-**3. SSH to VM and start coding**
+**3. SSH to VM via Tailscale and start coding**
 ```bash
-# From Cloud Shell (after deployment)
-ssh -i ~/.ssh/dev_env_key azureuser@<VM_IP>
+# From your laptop (VM auto-connected to Tailscale as 'dev-vm')
+ssh azureuser@dev-vm
 
 # On the VM - create a devpod
 ~/dev_env/scripts/dp.sh up https://github.com/your/repo
 ```
+
+Note: The VM has no public SSH access. All connections go through Tailscale.
 
 ### Alternative: Local Machine Setup
 
@@ -168,21 +172,24 @@ That's it! Now jump to [Usage](#usage).
 
 ```
 ┌─────────────────┐                      ┌─────────────────────────────────┐
-│  Azure Cloud    │         SSH          │           Azure VM              │
-│  Shell / Local  │◄───────────────────►│                                 │
+│  Azure Cloud    │   Azure API (deploy) │           Azure VM              │
+│  Shell / Local  │─────────────────────►│                                 │
 │                 │                      │  - DevPod CLI (dp.sh)           │
 │  - Deploy VM    │                      │  - Docker                       │
-│  - SSH to VM    │                      │  - dev_env repo                 │
-│                 │                      │                                 │
-└─────────────────┘                      │  ┌───────────────────────────┐  │
-                                         │  │    DevPod Container       │  │
-┌─────────────────┐      Tailscale SSH   │  │  ┌─────────────────────┐  │  │
-│  VS Code /      │◄────────────────────►│  │  │ Your Project        │  │  │
-│  Terminal       │                      │  │  │ + Dev Tools         │  │  │
-│                 │                      │  │  │ + Tailscale SSH     │  │  │
+│                 │                      │  - dev_env repo                 │
+└─────────────────┘                      │  - Tailscale (auto-connected)   │
+                                         │                                 │
+┌─────────────────┐      Tailscale SSH   │  ┌───────────────────────────┐  │
+│  Your Laptop    │◄────────────────────►│  │    DevPod Container       │  │
+│  (Tailscale)    │   (no public SSH!)   │  │  ┌─────────────────────┐  │  │
+│                 │                      │  │  │ Your Project        │  │  │
+│  VS Code /      │      Tailscale SSH   │  │  │ + Dev Tools         │  │  │
+│  Terminal       │◄────────────────────►│  │  │ + Tailscale SSH     │  │  │
 └─────────────────┘                      │  │  └─────────────────────┘  │  │
                                          │  └───────────────────────────┘  │
                                          └─────────────────────────────────┘
+
+NSG: All inbound traffic DENIED (Tailscale uses outbound connections only)
 ```
 
 DevPods are managed **on the VM** using `~/dev_env/scripts/dp.sh`. Each devpod container gets its own Tailscale IP for direct SSH access.
@@ -459,9 +466,9 @@ op run --env-file=.env.tpl -- ./my-script.sh
 
 ## Security
 
+- **No public SSH access** - All inbound traffic blocked by NSG
+- **Tailscale-only access** - VM auto-connects to Tailscale on boot
 - SSH key authentication only (no passwords)
-- NSG restricts SSH to your IP address
-- All other inbound traffic denied
 - Secrets managed via 1Password (never stored as plaintext)
 
 ## Pre-installed Tools

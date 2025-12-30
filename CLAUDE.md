@@ -4,6 +4,8 @@
 
 DevPods run on an Azure VM (dev-vm). All devpod management commands are executed **on the VM**, not locally.
 
+**Network Security**: The VM has **no public SSH access** - all inbound traffic is blocked by NSG. Access is via **Tailscale only**. The VM auto-connects to Tailscale during cloud-init as hostname `dev-vm`.
+
 ### Initial VM Setup (Azure Cloud Shell - Recommended)
 
 The safest way to deploy is from Azure Cloud Shell - no local dependencies needed.
@@ -27,9 +29,10 @@ curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/boots
 1. Installs 1Password CLI and GitHub CLI
 2. Authenticates with GitHub using PAT from 1Password
 3. Clones the dev_env repo
-4. Fetches SSH key from 1Password (`op://DEV_CLI/SSH Key`)
-5. Deploys the Azure VM
-6. Syncs secrets and clones dev_env onto the VM
+4. Fetches SSH key from 1Password (`op://DEV_CLI/dev-vm-key`)
+5. Fetches Tailscale auth key from 1Password (`op://DEV_CLI/Tailscale/auth_key`)
+6. Deploys the Azure VM with Tailscale auto-connect enabled
+7. Waits for VM to connect to Tailscale, then syncs secrets and clones dev_env
 
 ### Alternative: Local Machine Setup
 If you prefer to run from a local machine with az CLI:
@@ -45,11 +48,11 @@ This creates the VM with:
 
 ## DevPod Deployment
 
-**SSH to the VM first**, then use the `dp` wrapper script - never use `devpod` directly.
+**SSH to the VM via Tailscale first**, then use the `dp` wrapper script - never use `devpod` directly.
 
 ```bash
-# Connect to VM
-./scripts/ssh-connect.sh
+# Connect to VM via Tailscale (no public SSH access)
+ssh azureuser@dev-vm
 ```
 
 ### Deploy a new workspace (on VM)
@@ -193,7 +196,8 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 |------|---------|
 | `~/.config/dev_env/op_token` | 1Password Service Account token (synced to VM) |
 | `~/dev_env/setup.sh` | Initial VM deployment script |
-| `~/dev_env/scripts/ssh-connect.sh` | SSH to the VM |
+
+**SSH access**: `ssh azureuser@dev-vm` (via Tailscale, no public IP)
 
 **On the VM (dev-vm):**
 | Path | Purpose |

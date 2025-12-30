@@ -16,11 +16,12 @@ param vmSize string = 'Standard_D2s_v6'
 @secure()
 param sshPublicKey string
 
-@description('Allowed source IP addresses for SSH access (CIDR notation)')
-param allowedSshIps array = ['0.0.0.0/0'] // Default allows all - CHANGE THIS!
-
 @description('OS disk size in GB')
 param osDiskSizeGB int = 64
+
+@description('Tailscale auth key for automatic connection (enables Tailscale-only access)')
+@secure()
+param tailscaleAuthKey string = ''
 
 // Network module
 module network 'modules/network.bicep' = {
@@ -28,7 +29,6 @@ module network 'modules/network.bicep' = {
   params: {
     location: location
     namePrefix: namePrefix
-    allowedSshIps: allowedSshIps
   }
 }
 
@@ -42,6 +42,7 @@ module vm 'modules/vm.bicep' = {
     sshPublicKey: sshPublicKey
     nicId: network.outputs.nicId
     osDiskSizeGB: osDiskSizeGB
+    tailscaleAuthKey: tailscaleAuthKey
   }
 }
 

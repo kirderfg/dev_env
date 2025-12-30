@@ -10,12 +10,11 @@ LOCAL_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 # Load VM config
 if [ -f "${ENV_FILE}" ]; then
     source "${ENV_FILE}"
-else
-    echo "Error: Config file not found. Run ./scripts/deploy.sh first."
-    exit 1
 fi
 
-SSH_KEY_PATH="${SSH_KEY_PATH/#\~/$HOME}"
+# Use Tailscale hostname (no public SSH access)
+TAILSCALE_HOST="${TAILSCALE_HOSTNAME:-dev-vm}"
+SSH_USER="${SSH_USER:-azureuser}"
 SSH_OPTS="-o StrictHostKeyChecking=accept-new -o LogLevel=ERROR"
 
 echo "=== Syncing 1Password Token to VM ==="
@@ -42,14 +41,14 @@ if [ -z "$TOKEN" ]; then
     exit 1
 fi
 
-echo "Copying token to VM..."
+echo "Copying token to VM via Tailscale..."
 
 # Create remote directory and copy token
-ssh -i "${SSH_KEY_PATH}" $SSH_OPTS "${SSH_USER}@${VM_IP}" \
+ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" \
     "mkdir -p ~/.config/dev_env && chmod 700 ~/.config/dev_env"
 
 # Copy token securely (never in shell history)
-ssh -i "${SSH_KEY_PATH}" $SSH_OPTS "${SSH_USER}@${VM_IP}" bash -s <<EOF
+ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" bash -s <<EOF
 cat > ~/.config/dev_env/op_token << 'TOKENEOF'
 ${TOKEN}
 TOKENEOF
@@ -59,7 +58,7 @@ EOF
 # Verify op works on VM
 echo ""
 echo "Verifying 1Password on VM..."
-ssh -i "${SSH_KEY_PATH}" $SSH_OPTS "${SSH_USER}@${VM_IP}" bash -s <<'EOF'
+ssh $SSH_OPTS "${SSH_USER}@${TAILSCALE_HOST}" bash -s <<'EOF'
 export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
 if command -v op &>/dev/null; then
     if op whoami &>/dev/null; then

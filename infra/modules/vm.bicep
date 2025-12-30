@@ -20,8 +20,14 @@ param nicId string
 @description('OS disk size in GB')
 param osDiskSizeGB int = 64
 
+@description('Tailscale auth key for automatic connection')
+@secure()
+param tailscaleAuthKey string = ''
+
 // Cloud-init configuration - minimal VM with Docker + shell-bootstrap
-var cloudInitConfig = '''
+var cloudInitConfig = tailscaleAuthKey == '' ? cloudInitConfigBase : replace(cloudInitConfigBase, '# TAILSCALE_AUTH_PLACEHOLDER', 'sudo tailscale up --authkey=\'${tailscaleAuthKey}\' --ssh --hostname=dev-vm')
+
+var cloudInitConfigBase = '''
 #cloud-config
 package_update: true
 package_upgrade: true
@@ -86,9 +92,11 @@ runcmd:
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker azureuser
-  # Enable Tailscale (auth done later via setup-tailscale.sh after 1Password sync)
+  # Enable Tailscale
   - systemctl enable tailscaled
   - systemctl start tailscaled
+  # Authenticate with Tailscale (placeholder replaced if auth key provided)
+  # TAILSCALE_AUTH_PLACEHOLDER
   # Git config
   - su - azureuser -c 'git config --global user.name "Fredrik Gustavsson"'
   - su - azureuser -c 'git config --global user.email "fredrik@thegustavssons.se"'

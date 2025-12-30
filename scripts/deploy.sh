@@ -108,10 +108,19 @@ fi
 # Read SSH public key
 SSH_PUBLIC_KEY=$(cat "${SSH_KEY_PATH}.pub")
 
-# Get current public IP for NSG
-echo "Getting your public IP..."
-MY_IP=$(curl -s ifconfig.me)
-echo "Your IP: ${MY_IP}"
+# Get Tailscale auth key from 1Password
+TAILSCALE_AUTH_KEY=""
+if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
+    echo "Fetching Tailscale auth key from 1Password..."
+    export OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_TOKEN_FILE")"
+    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || true)
+    if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+        echo "Tailscale auth key found - VM will auto-connect to Tailscale"
+    else
+        echo "WARNING: Tailscale auth key not found in 1Password"
+        echo "VM will not auto-connect to Tailscale. Run setup-tailscale.sh manually after deploy."
+    fi
+fi
 
 # Create resource group if it doesn't exist
 echo "Creating resource group ${RESOURCE_GROUP}..."
@@ -119,20 +128,23 @@ az group create --name "${RESOURCE_GROUP}" --location "${LOCATION}" --output non
 
 # Deploy infrastructure
 echo "Deploying infrastructure..."
-az deployment group create \
-    --resource-group "${RESOURCE_GROUP}" \
-    --template-file "${INFRA_DIR}/main.bicep" \
-    --parameters \
-        location="swedencentral" \
-        namePrefix="dev-env" \
-        vmName="${VM_NAME}" \
-        vmSize="Standard_D2s_v6" \
-        osDiskSizeGB=64 \
-        sshPublicKey="${SSH_PUBLIC_KEY}" \
-        allowedSshIps="[\"${MY_IP}/32\"]" \
-    --output table
+DEPLOY_PARAMS=(
+    --resource-group "${RESOURCE_GROUP}"
+    --template-file "${INFRA_DIR}/main.bicep"
+    --parameters
+        location="swedencentral"
+        namePrefix="dev-env"
+        vmName="${VM_NAME}"
+        vmSize="Standard_D2s_v6"
+        osDiskSizeGB=64
+        sshPublicKey="${SSH_PUBLIC_KEY}"
+)
+if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+    DEPLOY_PARAMS+=(tailscaleAuthKey="${TAILSCALE_AUTH_KEY}")
+fi
+az deployment group create "${DEPLOY_PARAMS[@]}" --output table
 
-# Get public IP
+# Get public IP (still assigned, but SSH blocked by NSG)
 echo ""
 echo "=== Deployment Complete ==="
 PUBLIC_IP=$(az vm show \
@@ -152,61 +164,64 @@ VM_NAME=${VM_NAME}
 RESOURCE_GROUP=${RESOURCE_GROUP}
 SSH_KEY_PATH=${SSH_KEY_PATH}
 SSH_USER=${SSH_USER}
+TAILSCALE_HOSTNAME=dev-vm
 EOF
 
 echo "Config saved to ${ENV_FILE}"
 echo ""
-echo "Public IP: ${PUBLIC_IP}"
-echo "SSH Command: ssh -i ${SSH_KEY_PATH} ${SSH_USER}@${PUBLIC_IP}"
-echo ""
-echo "Quick connect: ./scripts/ssh-connect.sh"
-echo ""
+echo "Public IP: ${PUBLIC_IP} (SSH blocked by NSG - use Tailscale)"
 
-# Wait for cloud-init and check for errors
-echo "Waiting for cloud-init to complete..."
-ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${PUBLIC_IP}" 2>/dev/null || true
-SSH_CMD="ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ${SSH_USER}@${PUBLIC_IP}"
+if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+    echo ""
+    echo "=== Waiting for Tailscale connection ==="
+    echo "VM will auto-connect to Tailscale as 'dev-vm'..."
+    echo "Waiting for cloud-init to complete and Tailscale to connect..."
 
-# Wait for SSH to become available
-for i in {1..30}; do
+    # Wait for Tailscale to come online (poll via Tailscale SSH)
+    TAILSCALE_HOST="dev-vm"
+    SSH_CMD="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 ${SSH_USER}@${TAILSCALE_HOST}"
+
+    for i in {1..60}; do
+        if $SSH_CMD "exit 0" 2>/dev/null; then
+            echo ""
+            echo "✓ Connected to VM via Tailscale!"
+            break
+        fi
+        echo -n "."
+        sleep 5
+    done
+    echo ""
+
+    # Check cloud-init status
     if $SSH_CMD "exit 0" 2>/dev/null; then
-        break
-    fi
-    echo -n "."
-    sleep 5
-done
-echo ""
+        echo "=== Cloud-init Status ==="
+        $SSH_CMD "cloud-init status --wait" 2>/dev/null || true
 
-# Wait for cloud-init to finish
-echo "Waiting for cloud-init..."
-$SSH_CMD "cloud-init status --wait" 2>/dev/null || true
+        INIT_COMPLETE=$($SSH_CMD "cat /var/log/cloud-init-complete.log 2>/dev/null" || true)
+        if [ -n "$INIT_COMPLETE" ]; then
+            echo "Cloud-init: SUCCESS"
+        else
+            echo "Cloud-init: WARNING - setup may not have completed"
+            INIT_ERRORS=$($SSH_CMD "grep -i 'error\|failed\|fatal' /var/log/cloud-init-output.log 2>/dev/null | grep -v 'INFO\|DEBUG' | head -10" 2>/dev/null || true)
+            if [ -n "$INIT_ERRORS" ]; then
+                echo "Errors found:"
+                echo "$INIT_ERRORS"
+            fi
+        fi
 
-# Check for errors
-echo ""
-echo "=== Cloud-init Status ==="
-INIT_ERRORS=$($SSH_CMD "grep -i 'error\|failed\|fatal' /var/log/cloud-init-output.log 2>/dev/null | grep -v 'INFO\|DEBUG' | head -10" 2>/dev/null || true)
-INIT_COMPLETE=$($SSH_CMD "cat /var/log/cloud-init-complete.log 2>/dev/null" || true)
+        # Sync secrets and setup dev_env
+        if [ -f "${HOME}/.config/dev_env/op_token" ]; then
+            echo ""
+            echo "=== Syncing secrets to VM ==="
+            scp -o StrictHostKeyChecking=accept-new "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:~/.config/dev_env/op_token" 2>/dev/null || {
+                $SSH_CMD "mkdir -p ~/.config/dev_env"
+                scp "${HOME}/.config/dev_env/op_token" "${SSH_USER}@${TAILSCALE_HOST}:~/.config/dev_env/op_token"
+            }
+            echo "✓ 1Password token synced"
 
-if [ -n "$INIT_COMPLETE" ]; then
-    echo "Cloud-init: SUCCESS"
-else
-    echo "Cloud-init: WARNING - setup may not have completed"
-    if [ -n "$INIT_ERRORS" ]; then
-        echo ""
-        echo "Errors found in cloud-init log:"
-        echo "$INIT_ERRORS"
-    fi
-fi
-
-# Sync secrets if available locally
-if [ -f "${HOME}/.config/dev_env/op_token" ]; then
-    echo ""
-    "${SCRIPT_DIR}/sync-secrets.sh" || echo "Warning: Secret sync failed (VM may still be initializing)"
-
-    # Set up git credential helper and clone dev_env repo
-    echo ""
-    echo "=== Setting up dev_env on VM ==="
-    $SSH_CMD bash -s <<'SETUP_EOF'
+            echo ""
+            echo "=== Setting up dev_env on VM ==="
+            $SSH_CMD bash -s <<'SETUP_EOF'
 set -e
 export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token 2>/dev/null)"
 
@@ -231,14 +246,24 @@ else
     cd ~/dev_env && git pull --ff-only || true
 fi
 SETUP_EOF
+        fi
+    else
+        echo ""
+        echo "WARNING: Could not connect via Tailscale after 5 minutes"
+        echo "Check Tailscale admin console for device 'dev-vm'"
+    fi
+
+    echo ""
+    echo "VM ready! Connect with: ssh ${SSH_USER}@dev-vm"
 else
     echo ""
-    echo "Warning: No 1Password token found at ~/.config/dev_env/op_token"
-    echo "Cannot set up dev_env repo automatically."
+    echo "WARNING: No Tailscale auth key - VM has no network access!"
+    echo "You'll need to:"
+    echo "  1. Add SSH inbound rule to NSG manually"
+    echo "  2. SSH in and run setup-tailscale.sh"
+    echo "  3. Then remove the SSH rule"
 fi
 
-echo ""
-echo "VM ready! Connect with: ./scripts/ssh-connect.sh"
 echo ""
 echo "=== DevPod Usage ==="
 echo "SSH to VM and run devpods with:"

@@ -4,9 +4,6 @@ param location string
 @description('Name prefix for resources')
 param namePrefix string
 
-@description('Allowed source IP addresses for SSH access')
-param allowedSshIps array
-
 // Virtual Network
 resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
   name: '${namePrefix}-vnet'
@@ -31,25 +28,12 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
   }
 }
 
-// Network Security Group
+// Network Security Group - No inbound access, connect via Tailscale only
 resource nsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
   name: '${namePrefix}-nsg'
   location: location
   properties: {
     securityRules: [
-      {
-        name: 'AllowSSH'
-        properties: {
-          priority: 100
-          direction: 'Inbound'
-          access: 'Allow'
-          protocol: 'Tcp'
-          sourcePortRange: '*'
-          destinationPortRange: '22'
-          sourceAddressPrefixes: allowedSshIps
-          destinationAddressPrefix: '*'
-        }
-      }
       {
         name: 'DenyAllInbound'
         properties: {
