@@ -71,13 +71,14 @@ ssh azureuser@dev-vm
 The `dp` script automatically:
 - Injects `OP_SERVICE_ACCOUNT_TOKEN` from `~/.config/dev_env/op_token`
 - Sets `SHELL_BOOTSTRAP_NONINTERACTIVE=1`
+- Defaults to `--ide none` (no browser VSCode); override with `--ide vscode` if needed
 - Uses the local `docker` provider
 
 ## DevContainer Template
 
-Projects should use the shared template via **git submodule** (preferred) or copy files directly.
+Projects should use the shared template from the [devcontainer-template](https://github.com/kirderfg/devcontainer-template) repo via **git submodule**.
 
-### Option 1: Git Submodule (Preferred)
+### Add template to a project
 ```bash
 cd /path/to/project
 git submodule add https://github.com/kirderfg/devcontainer-template.git .devcontainer
@@ -85,16 +86,10 @@ git commit -m "Add devcontainer template as submodule"
 git push
 ```
 
-To update the template in a project:
+### Update the template in a project
 ```bash
 git submodule update --remote .devcontainer
 git commit -m "Update devcontainer template"
-```
-
-### Option 2: Copy files directly
-```bash
-cp ~/dev_env/templates/devcontainer/*.sh /path/to/project/.devcontainer/
-cp ~/dev_env/templates/devcontainer/devcontainer.json /path/to/project/.devcontainer/
 ```
 
 ### What the template provides
@@ -202,7 +197,6 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 |------|---------|
 | `~/.config/dev_env/op_token` | 1Password Service Account token |
 | `~/dev_env/scripts/dp.sh` | DevPod wrapper script |
-| `~/dev_env/templates/devcontainer/` | Devcontainer template files |
 
 **Inside devpod containers:**
 | Path | Purpose |
@@ -215,7 +209,7 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 Always use `~/dev_env/scripts/dp.sh` - it injects the 1Password token.
 
 ### 2. Modifying devcontainer files without updating template
-If you fix something in a project's devcontainer, also update the template in `dev_env/templates/devcontainer/`.
+If you fix something in a project's devcontainer, also update the template in the [devcontainer-template](https://github.com/kirderfg/devcontainer-template) repo.
 
 ### 3. Forgetting to delete cached images on rebuild
 If `--recreate` doesn't pick up devcontainer.json changes (like new base image):

@@ -98,6 +98,13 @@ main() {
             # Add non-interactive flag for shell-bootstrap
             devpod_args+=("--workspace-env" "SHELL_BOOTSTRAP_NONINTERACTIVE=1")
 
+            # Default to --ide none unless user specified --ide
+            local ide_specified=false
+            for arg in "$@"; do
+                [[ "$arg" == "--ide" ]] && ide_specified=true && break
+            done
+            [[ "$ide_specified" == "false" ]] && devpod_args+=("--ide" "none")
+
             # Add any additional arguments passed by user
             devpod_args+=("$@")
 
@@ -129,6 +136,14 @@ main() {
             fi
 
             devpod_args+=("--workspace-env" "SHELL_BOOTSTRAP_NONINTERACTIVE=1")
+
+            # Default to --ide none unless user specified --ide
+            local ide_specified=false
+            for arg in "$@"; do
+                [[ "$arg" == "--ide" ]] && ide_specified=true && break
+            done
+            [[ "$ide_specified" == "false" ]] && devpod_args+=("--ide" "none")
+
             devpod_args+=("$@")
 
             log "Rebuilding workspace $workspace..."
