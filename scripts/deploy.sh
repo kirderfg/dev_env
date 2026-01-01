@@ -94,7 +94,7 @@ DEPLOY_PARAMS=(
         location="swedencentral"
         namePrefix="dev-env"
         vmName="${VM_NAME}"
-        vmSize="Standard_D2s_v6"
+        vmSize="Standard_D8s_v6"
         osDiskSizeGB=64
         sshPublicKey="${SSH_PUBLIC_KEY}"
 )
