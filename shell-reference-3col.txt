@@ -1,0 +1,60 @@
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                    SHELL ENVIRONMENT REFERENCE  (type 'help' to show, Ctrl+S for snippets)
+═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌─ ZSH VI MODE ─────────────────────────┐ ┌─ ATUIN (History) ─────────────────────┐ ┌─ DEVPOD (on VM) ──────────────────────┐
+│ ESC         Normal mode (block)       │ │ Ctrl+R    Interactive history search  │ │ dp.sh up <url>    Create workspace    │
+│ i/a         Insert mode (beam)        │ │ Up/Down   Navigate (prefix search)    │ │ dp.sh ssh <ws>    SSH into workspace  │
+│ h/l/w/b     Move: char/word           │ │ Enter     Execute selected            │ │ dp.sh list        List workspaces     │
+│ 0/$         Start/end of line         │ │ Tab       Insert (don't execute)      │ │ dp.sh rebuild     Rebuild workspace   │
+│ x/dw/dd     Delete: char/word/line    │ │ Ctrl+D    Delete from history         │ │ dp.sh delete      Delete workspace    │
+│ cw/cc       Change word/line          │ │ atuin sync  Sync with server          │ │                                       │
+│ yy/p        Yank/paste line           │ └───────────────────────────────────────┘ │ ─ After Tailscale SSH (as root) ─     │
+│ u           Undo                      │ ┌─ PET (Snippets) ─────────────────────┐ │ su - vscode       Switch user         │
+│ ─ Insert mode ─                       │ │ Ctrl+S    Search & insert snippet    │ │ dev               Start dev session   │
+│ Ctrl+A/E    Start/end of line         │ │ pet new   Create new snippet         │ └───────────────────────────────────────┘
+│ Ctrl+W      Delete word backward      │ │ prev      Save last cmd as snippet   │ ┌─ CLAUDE CODE ─────────────────────────┐
+│ Ctrl+U/K    Delete to start/end       │ │ pet edit  Edit snippets file         │ │ claude            Start session       │
+└───────────────────────────────────────┘ └───────────────────────────────────────┘ │ claude -c         Continue last        │
+┌─ TMUX (Ctrl+A = prefix) ──────────────┐ ┌─ YAZI (Files) ───────────────────────┐ │ @file.txt         Include file         │
+│ dev         Dev session (4 tabs)      │ │ y         Open (cd on exit)          │ │ @folder/          Include directory    │
+│ Ctrl+A c    New window                │ │ h/l       Parent/enter directory     │ │ ! cmd             Run shell inline     │
+│ Ctrl+A |/-  Split vert/horiz          │ │ j/k       Move down/up               │ │ ─ Slash Commands ─                     │
+│ Ctrl+A hjkl Navigate panes            │ │ Space     Toggle selection           │ │ /model X   opus/sonnet/haiku           │
+│ Ctrl+A z    Toggle zoom               │ │ y/x/p     Yank/cut/paste             │ │ /compact   Compress context            │
+│ Alt+1234    Switch windows            │ │ a/r       Create/rename              │ │ /cost      Show session cost           │
+│ Ctrl+A d    Detach                    │ │ d/D       Trash/delete permanent     │ │ /clear     Clear history               │
+│ Ctrl+A [    Scroll mode (q exit)      │ │ .         Toggle hidden              │ │ Tab        Accept autocomplete         │
+│ Ctrl+A r    Reload config             │ │ q         Quit                       │ │ Esc Esc    Interrupt generation        │
+└───────────────────────────────────────┘ └───────────────────────────────────────┘ └───────────────────────────────────────┘
+┌─ ALIASES ─────────────────────────────┐ ┌─ ZOXIDE & FZF ────────────────────────┐ ┌─ 1PASSWORD ────────────────────────────┐
+│ gs/gd/gds   git status/diff/staged    │ │ z <dir>   Jump to directory          │ │ op read 'op://VAULT/Item/field'       │
+│ gl/gp       git log/pull              │ │ zi        Interactive selection      │ │ op item list --vault DEV_CLI          │
+│ ll/lt/lS    List: long/time/size      │ │ Ctrl+T    Fuzzy find files           │ │ op whoami        Check auth status    │
+│ ../...      Go up 1/2 dirs            │ │ Alt+C     Fuzzy cd subdirectory      │ │                                       │
+│ take <dir>  mkdir + cd                │ └───────────────────────────────────────┘ │ Secrets auto-loaded on shell start:   │
+│ extract <f> Extract any archive       │ ┌─ GIT ─────────────────────────────────┐ │   GITHUB_TOKEN, OPENAI_API_KEY        │
+│ y           Yazi file manager         │ │ git log --oneline --graph -20        │ │   ATUIN_*, PET_SNIPPETS_TOKEN         │
+│ help        This reference            │ │ git diff --staged                    │ └───────────────────────────────────────┘
+└───────────────────────────────────────┘ │ git commit --amend --no-edit         │ ┌─ SECURITY SCANNING ───────────────────┐
+┌─ DEV SESSION TABS ────────────────────┐ │ git rebase -i HEAD~N                 │ │ .devcontainer/security-scan.sh        │
+│ 1: claude   Claude Code               │ └───────────────────────────────────────┘ │ .devcontainer/security-scan.sh full   │
+│ 2: shell    Zsh shell                 │ ┌─ PRE-COMMIT ──────────────────────────┐ │ gitleaks detect --source . --verbose  │
+│ 3: files    Yazi file manager         │ │ pre-commit run --all-files           │ │ trivy fs .                            │
+│ 4: help     This reference            │ │ pre-commit autoupdate                │ │ snyk test                             │
+└───────────────────────────────────────┘ │ SKIP=mypy git commit -m "msg"        │ └───────────────────────────────────────┘
+                                          └───────────────────────────────────────┘
+┌─ TAILSCALE ACCESS ─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Container hostname: devpod-<workspace>  │  SSH: ssh root@devpod-<workspace>  │  Then: su - vscode && dev                  │
+│ Claude UI: http://<tailscale-ip>:3001   │  Show IP: tailscale ip -4          │  Status: pm2 status claude-code-ui         │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ CONFIG FILES ─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ~/.config/starship.toml   ~/.config/atuin/config.toml   ~/.config/pet/snippet.toml   ~/.config/yazi/   ~/CLAUDE.md        │
+│ ~/.config/shell-bootstrap/zshrc   ~/.config/dev_env/{op_token,init.sh}   ~/.tmux.conf   ~/.claude/settings.json           │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ QUICK WORKFLOWS ──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ New workspace:  ssh dev-vm → dp.sh up https://github.com/user/repo → ssh root@devpod-<repo> → su - vscode → dev           │
+│ Code review:    claude 'review this diff' < <(git diff --staged)                                                           │
+│ Commit msg:     claude 'write commit message' < <(git diff --staged)                                                       │
+│ Find snippet:   Ctrl+S → type query → Enter                                                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

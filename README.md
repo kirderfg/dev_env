@@ -287,7 +287,7 @@ Add this to your project at `.devcontainer/devcontainer.json`:
 - **Port forwarding**: DevPod auto-forwards ports. Access `localhost:3000` on your machine for a service running in the container.
 - **Multiple workspaces**: Run several projects on the same VM, each in isolated containers.
 
-## After |
+## After VM Eviction
 
 If Azure reclaims the VM due to capacity:
 
@@ -453,21 +453,31 @@ The VM comes with:
 
 ## DevContainer Template
 
-The `templates/devcontainer/` folder contains a best-practices template for Python + Node projects:
+Projects should use the [devcontainer-template](https://github.com/kirderfg/devcontainer-template) repo as a **git submodule**:
 
 ```bash
-# Copy to your project
-cp -r templates/devcontainer/.devcontainer your-project/
-cp templates/devcontainer/.pre-commit-config.yaml your-project/
+# Add to your project
+cd your-project
+git submodule add https://github.com/kirderfg/devcontainer-template.git .devcontainer
+cp .devcontainer/.pre-commit-config.yaml .
+git add .devcontainer .pre-commit-config.yaml .gitmodules
+git commit -m "Add devcontainer template"
+
+# Update to latest template
+git submodule update --remote .devcontainer
+git commit -m "Update devcontainer template"
 ```
 
 **Includes:**
 - Python 3.12, Node 20, Docker-in-Docker
-- GitHub CLI, pre-commit hooks
-- Security scanning: Gitleaks, Trivy, Bandit, Safety
+- Shell-bootstrap (zsh, starship, atuin, yazi, pet, etc.)
+- Claude Code CLI + UI (port 3001)
+- Tailscale SSH for remote access
+- Security scanning: Gitleaks, Trivy, Bandit, Safety, Snyk
+- Pre-commit hooks: black, ruff, mypy, eslint, prettier
 - VS Code extensions: Python, ESLint, Prettier, Snyk, GitLens
 
-See [templates/devcontainer/README.md](templates/devcontainer/README.md) for details.
+See [devcontainer-template README](https://github.com/kirderfg/devcontainer-template) for details.
 
 ## File Structure
 
@@ -476,21 +486,25 @@ dev_env/
 ├── infra/
 │   ├── main.bicep              # Main orchestration
 │   └── modules/
-│       ├── vm.bicep            # Spot VM + cloud-init
+│       ├── vm.bicep            # VM + cloud-init
 │       └── network.bicep       # VNet, NSG, Public IP
 ├── scripts/
 │   ├── deploy.sh               # Deploy VM infrastructure
+│   ├── dp.sh                   # DevPod wrapper (injects 1P token)
 │   ├── redeploy.sh             # Delete and recreate VM
 │   ├── ssh-connect.sh          # SSH into VM
 │   ├── start-vm.sh             # Start deallocated VM
 │   ├── stop-vm.sh              # Stop and deallocate VM
-│   ├── setup-vm.sh             # Setup VM with 1Password token
-│   └── devpod-setup.sh         # Configure DevPod SSH provider
-├── templates/
-│   └── devcontainer/           # DevContainer template
+│   └── setup-vm.sh             # Setup VM with 1Password token
+├── pet-snippets-devenv.toml    # Pet snippets for dev workflow
 ├── .env                        # VM config (auto-generated)
+├── CLAUDE.md                   # Claude Code instructions
 └── README.md
 ```
+
+**Related repos:**
+- [shell-bootstrap](https://github.com/kirderfg/shell-bootstrap) - Terminal environment setup
+- [devcontainer-template](https://github.com/kirderfg/devcontainer-template) - Devcontainer configuration (use as submodule)
 
 ## Cleanup
 

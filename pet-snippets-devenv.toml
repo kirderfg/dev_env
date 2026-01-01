@@ -1,0 +1,187 @@
+# Pet Snippets for dev_env workflow
+# Copy these to your pet snippets or merge with existing
+# Usage: Ctrl+S to search and insert
+
+# =============================================================================
+# DEVPOD - Workspace Management (run on VM)
+# =============================================================================
+
+[[snippets]]
+description = "Create new devpod workspace with 1Password secrets"
+command = "~/dev_env/scripts/dp.sh up <repo_url>"
+tag = ["devpod", "vm"]
+output = ""
+
+[[snippets]]
+description = "Create devpod from local folder"
+command = "~/dev_env/scripts/dp.sh up ./<folder_name>"
+tag = ["devpod", "vm"]
+output = ""
+
+[[snippets]]
+description = "SSH into devpod workspace"
+command = "~/dev_env/scripts/dp.sh ssh <workspace_name>"
+tag = ["devpod", "vm"]
+output = ""
+
+[[snippets]]
+description = "List all devpod workspaces"
+command = "~/dev_env/scripts/dp.sh list"
+tag = ["devpod", "vm"]
+output = ""
+
+[[snippets]]
+description = "Rebuild devpod workspace (recreate container)"
+command = "~/dev_env/scripts/dp.sh rebuild <workspace_name>"
+tag = ["devpod", "vm"]
+output = ""
+
+[[snippets]]
+description = "Delete devpod and clean docker images"
+command = "~/dev_env/scripts/dp.sh delete <workspace_name> && docker image prune -f"
+tag = ["devpod", "vm"]
+output = ""
+
+# =============================================================================
+# CONTAINER - Inside devpod containers
+# =============================================================================
+
+[[snippets]]
+description = "Switch to vscode user and start dev session (after Tailscale SSH as root)"
+command = "su - vscode -c 'cd /workspaces/* && exec zsh'"
+tag = ["container", "tailscale"]
+output = ""
+
+[[snippets]]
+description = "Show Tailscale IP for remote access"
+command = "tailscale ip -4"
+tag = ["container", "tailscale"]
+output = ""
+
+[[snippets]]
+description = "Restart Claude Code UI (PM2)"
+command = "pm2 restart claude-code-ui && pm2 logs claude-code-ui --lines 5"
+tag = ["container", "claude"]
+output = ""
+
+[[snippets]]
+description = "Check all services status (Tailscale, PM2, Docker)"
+command = "echo '=== Tailscale ===' && tailscale status 2>/dev/null || echo 'not running'; echo '=== PM2 ===' && pm2 list 2>/dev/null || echo 'not running'; echo '=== Docker ===' && docker info --format '{{.ServerVersion}}' 2>/dev/null || echo 'not running'"
+tag = ["container", "status"]
+output = ""
+
+# =============================================================================
+# CLAUDE CODE - AI Assistant
+# =============================================================================
+
+[[snippets]]
+description = "Code review with Claude (staged changes)"
+command = "claude 'Review this diff for issues, bugs, and improvements' < <(git diff --staged)"
+tag = ["claude", "git"]
+output = ""
+
+[[snippets]]
+description = "Generate commit message with Claude"
+command = "claude 'Write a concise commit message for these changes. Follow conventional commits format.' < <(git diff --staged)"
+tag = ["claude", "git"]
+output = ""
+
+[[snippets]]
+description = "Explain error with Claude"
+command = "claude 'Explain this error and suggest fixes' < <error_file>"
+tag = ["claude"]
+output = ""
+
+[[snippets]]
+description = "Start Claude and continue last session"
+command = "claude -c"
+tag = ["claude"]
+output = ""
+
+# =============================================================================
+# 1PASSWORD - Secrets Management
+# =============================================================================
+
+[[snippets]]
+description = "Read secret from 1Password"
+command = "op read 'op://DEV_CLI/<item>/<field>'"
+tag = ["1password", "secrets"]
+output = ""
+
+[[snippets]]
+description = "List items in DEV_CLI vault"
+command = "op item list --vault DEV_CLI --format json | jq -r '.[] | \"\\(.title): \\(.id)\"'"
+tag = ["1password", "secrets"]
+output = ""
+
+[[snippets]]
+description = "Check 1Password auth status"
+command = "op whoami"
+tag = ["1password"]
+output = ""
+
+# =============================================================================
+# GIT - Common Operations
+# =============================================================================
+
+[[snippets]]
+description = "Interactive rebase last N commits"
+command = "git rebase -i HEAD~<n>"
+tag = ["git"]
+output = ""
+
+[[snippets]]
+description = "Amend last commit without changing message"
+command = "git add -A && git commit --amend --no-edit"
+tag = ["git"]
+output = ""
+
+[[snippets]]
+description = "Show git log with graph"
+command = "git log --oneline --graph --all -20"
+tag = ["git"]
+output = ""
+
+# =============================================================================
+# PRE-COMMIT - Code Quality
+# =============================================================================
+
+[[snippets]]
+description = "Run all pre-commit hooks on all files"
+command = "pre-commit run --all-files"
+tag = ["precommit", "quality"]
+output = ""
+
+[[snippets]]
+description = "Update pre-commit hooks to latest versions"
+command = "pre-commit autoupdate"
+tag = ["precommit"]
+output = ""
+
+[[snippets]]
+description = "Skip specific hook for this commit"
+command = "SKIP=<hook_name> git commit -m '<message>'"
+tag = ["precommit", "git"]
+output = ""
+
+# =============================================================================
+# SECURITY - Scanning
+# =============================================================================
+
+[[snippets]]
+description = "Run security scan (quick)"
+command = ".devcontainer/security-scan.sh"
+tag = ["security"]
+output = ""
+
+[[snippets]]
+description = "Run security scan (full with container analysis)"
+command = ".devcontainer/security-scan.sh full"
+tag = ["security"]
+output = ""
+
+[[snippets]]
+description = "Scan for secrets with gitleaks"
+command = "gitleaks detect --source . --verbose"
+tag = ["security", "secrets"]
+output = ""
