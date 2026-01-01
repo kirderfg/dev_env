@@ -127,7 +127,7 @@ runcmd:
   - su - azureuser -c 'devpod provider add docker --silent 2>/dev/null || true'
   # Shell-bootstrap for nice prompt (runs as azureuser)
   # NOTE: Must download first then run - piping to bash breaks interactive prompts
-  # Secrets will be loaded later via 1Password when sync-secrets.sh is run
+  # Secrets will be loaded later via 1Password when setup-vm.sh is run
   - su - azureuser -c 'curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh && SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh && rm -f /tmp/shell-bootstrap-install.sh'
   - echo "VM setup complete" > /var/log/cloud-init-complete.log
 '''

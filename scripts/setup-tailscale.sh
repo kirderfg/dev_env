@@ -20,7 +20,7 @@ if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ] && [ -f ~/.config/dev_env/op_token ]; then
 fi
 
 if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
-    error "1Password token not found. Run sync-secrets.sh first."
+    error "1Password token not found. Run setup-vm.sh first."
     exit 1
 fi
 

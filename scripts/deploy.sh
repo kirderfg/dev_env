@@ -9,13 +9,14 @@ SSH_USER="azureuser"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../infra"
 ENV_FILE="${SCRIPT_DIR}/../.env"
-OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
 
 echo "=== Azure Dev VM Deployment ==="
+echo ""
 
 # Check if Azure CLI is installed
 if ! command -v az &> /dev/null; then
-    echo "Error: Azure CLI is not installed. Install it from https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+    echo "Error: Azure CLI is not installed."
+    echo "Run this from Azure Cloud Shell or install az CLI locally."
     exit 1
 fi
 
@@ -24,6 +25,41 @@ if ! az account show &> /dev/null; then
     echo "Error: Not logged in to Azure. Run 'az login' first."
     exit 1
 fi
+
+# Install 1Password CLI if not present (for Cloud Shell)
+if ! command -v op &> /dev/null; then
+    echo "Installing 1Password CLI..."
+    mkdir -p ~/bin
+    curl -sSfLo /tmp/op.zip "https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.0/op_linux_amd64_v2.30.0.zip"
+    unzip -o -q /tmp/op.zip -d /tmp/op_extracted
+    mv /tmp/op_extracted/op ~/bin/op
+    chmod +x ~/bin/op
+    rm -rf /tmp/op.zip /tmp/op_extracted
+    export PATH="$HOME/bin:$PATH"
+    echo "1Password CLI installed"
+fi
+
+# Prompt for 1Password token
+echo ""
+echo "Enter your 1Password Service Account Token"
+echo "(needed to fetch Tailscale auth key for VM setup)"
+echo ""
+read -s -r -p "Token: " OP_SERVICE_ACCOUNT_TOKEN
+echo ""
+
+if [ -z "$OP_SERVICE_ACCOUNT_TOKEN" ]; then
+    echo "Error: No token provided"
+    exit 1
+fi
+export OP_SERVICE_ACCOUNT_TOKEN
+
+# Verify token works
+echo "Verifying 1Password token..."
+if ! op whoami &>/dev/null; then
+    echo "Error: 1Password authentication failed. Check your token."
+    exit 1
+fi
+echo "1Password authenticated"
 
 # Check if VM already exists
 echo "Checking for existing VM..."
@@ -63,22 +99,19 @@ rm -f "$TEMP_KEY" "${TEMP_KEY}.pub"
 echo "SSH key generated (throwaway - access is via Tailscale)"
 
 # Get Tailscale keys from 1Password
-TAILSCALE_AUTH_KEY=""
-TAILSCALE_API_KEY=""
-if [ -f "$OP_TOKEN_FILE" ] && command -v op &> /dev/null; then
-    echo "Fetching Tailscale keys from 1Password..."
-    export OP_SERVICE_ACCOUNT_TOKEN="$(cat "$OP_TOKEN_FILE")"
-    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || true)
-    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null || true)
-    if [ -n "$TAILSCALE_AUTH_KEY" ]; then
-        echo "Tailscale auth key found - VM will auto-connect to Tailscale"
-        if [ -n "$TAILSCALE_API_KEY" ]; then
-            echo "Tailscale API key found - old 'dev-vm' device will be removed before registering"
-        fi
-    else
-        echo "WARNING: Tailscale auth key not found in 1Password"
-        echo "VM will not auto-connect to Tailscale. Run setup-tailscale.sh manually after deploy."
-    fi
+echo ""
+echo "Fetching Tailscale keys from 1Password..."
+TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || true)
+TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null || true)
+
+if [ -z "$TAILSCALE_AUTH_KEY" ]; then
+    echo "Error: Tailscale auth key not found in 1Password (op://DEV_CLI/Tailscale/auth_key)"
+    exit 1
+fi
+echo "Tailscale auth key found"
+
+if [ -n "$TAILSCALE_API_KEY" ]; then
+    echo "Tailscale API key found - old 'dev-vm' device will be removed"
 fi
 
 # Create resource group if it doesn't exist
@@ -131,113 +164,42 @@ echo "Config saved to ${ENV_FILE}"
 echo ""
 echo "Public IP: ${PUBLIC_IP} (SSH blocked by NSG - use Tailscale)"
 
-if [ -n "$TAILSCALE_AUTH_KEY" ]; then
-    echo ""
-    echo "=== Waiting for cloud-init to complete ==="
-
-    # Wait for cloud-init using az vm run-command (works from Cloud Shell without Tailscale)
-    echo "Checking cloud-init status..."
-    for i in {1..60}; do
-        CLOUD_INIT_STATUS=$(az vm run-command invoke \
-            --resource-group "${RESOURCE_GROUP}" \
-            --name "${VM_NAME}" \
-            --command-id RunShellScript \
-            --scripts "cloud-init status 2>/dev/null | grep -o 'done\|running\|error' || echo 'waiting'" \
-            --query "value[0].message" -o tsv 2>/dev/null | grep -o 'done\|running\|error\|waiting' | head -1)
-
-        if [ "$CLOUD_INIT_STATUS" = "done" ]; then
-            echo ""
-            echo "✓ Cloud-init completed"
-            break
-        elif [ "$CLOUD_INIT_STATUS" = "error" ]; then
-            echo ""
-            echo "✗ Cloud-init failed - check VM logs"
-            break
-        fi
-        echo -n "."
-        sleep 10
-    done
-    echo ""
-
-    # Sync secrets and setup dev_env using az vm run-command
-    # This works from Azure Cloud Shell which doesn't have Tailscale
-    if [ -f "${HOME}/.config/dev_env/op_token" ]; then
-        echo ""
-        echo "=== Syncing secrets to VM ==="
-        OP_TOKEN=$(cat "${HOME}/.config/dev_env/op_token")
-
-        # Use az vm run-command to write token and run shell-bootstrap
-        az vm run-command invoke \
-            --resource-group "${RESOURCE_GROUP}" \
-            --name "${VM_NAME}" \
-            --command-id RunShellScript \
-            --scripts "
-mkdir -p /home/${SSH_USER}/.config/dev_env
-chmod 700 /home/${SSH_USER}/.config/dev_env
-cat > /home/${SSH_USER}/.config/dev_env/op_token << 'TOKENEOF'
-${OP_TOKEN}
-TOKENEOF
-chmod 600 /home/${SSH_USER}/.config/dev_env/op_token
-chown -R ${SSH_USER}:${SSH_USER} /home/${SSH_USER}/.config/dev_env
-echo 'Token written successfully'
-" --query "value[0].message" -o tsv 2>/dev/null | tail -5
-
-        echo "✓ 1Password token synced"
-
-        echo ""
-        echo "=== Setting up dev_env on VM ==="
-        az vm run-command invoke \
-            --resource-group "${RESOURCE_GROUP}" \
-            --name "${VM_NAME}" \
-            --command-id RunShellScript \
-            --scripts '
-set -e
-export HOME=/home/'"${SSH_USER}"'
-cd $HOME
-export OP_SERVICE_ACCOUNT_TOKEN="$(cat $HOME/.config/dev_env/op_token 2>/dev/null)"
-
-# Clone dev_env repo if not exists
-if [ ! -d $HOME/dev_env ]; then
-    echo "Cloning dev_env repo..."
-    GITHUB_PAT=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null || true)
-    if [ -n "$GITHUB_PAT" ]; then
-        su - '"${SSH_USER}"' -c "git clone https://${GITHUB_PAT}@github.com/kirderfg/dev_env.git $HOME/dev_env"
-        echo "✓ dev_env cloned"
-    else
-        echo "✗ GitHub PAT not found"
-        exit 1
-    fi
-else
-    echo "✓ dev_env already exists"
-    su - '"${SSH_USER}"' -c "cd $HOME/dev_env && git pull --ff-only" || true
-fi
-
-# Re-run shell-bootstrap with token to configure gh/atuin/git/pet
 echo ""
-echo "=== Running shell-bootstrap with 1Password token ==="
-su - '"${SSH_USER}"' -c "
-export OP_SERVICE_ACCOUNT_TOKEN=\"\$(cat ~/.config/dev_env/op_token)\"
-curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/shell-bootstrap-install.sh
-SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/shell-bootstrap-install.sh
-rm -f /tmp/shell-bootstrap-install.sh
-"
-echo "✓ Shell environment configured"
-' --query "value[0].message" -o tsv 2>/dev/null | tail -20
-    fi
+echo "=== Waiting for cloud-init to complete ==="
 
-    echo ""
-    echo "VM ready! Connect with: ssh ${SSH_USER}@dev-vm"
-else
-    echo ""
-    echo "WARNING: No Tailscale auth key - VM has no network access!"
-    echo "You'll need to:"
-    echo "  1. Add SSH inbound rule to NSG manually"
-    echo "  2. SSH in and run setup-tailscale.sh"
-    echo "  3. Then remove the SSH rule"
-fi
+# Wait for cloud-init using az vm run-command
+echo "Checking cloud-init status..."
+for i in {1..60}; do
+    CLOUD_INIT_STATUS=$(az vm run-command invoke \
+        --resource-group "${RESOURCE_GROUP}" \
+        --name "${VM_NAME}" \
+        --command-id RunShellScript \
+        --scripts "cloud-init status 2>/dev/null | grep -o 'done\|running\|error' || echo 'waiting'" \
+        --query "value[0].message" -o tsv 2>/dev/null | grep -o 'done\|running\|error\|waiting' | head -1)
+
+    if [ "$CLOUD_INIT_STATUS" = "done" ]; then
+        echo ""
+        echo "Cloud-init completed"
+        break
+    elif [ "$CLOUD_INIT_STATUS" = "error" ]; then
+        echo ""
+        echo "Cloud-init failed - check VM logs"
+        break
+    fi
+    echo -n "."
+    sleep 10
+done
+echo ""
 
 echo ""
-echo "=== DevPod Usage ==="
-echo "SSH to VM and run devpods with:"
-echo "  ~/dev_env/scripts/dp.sh up https://github.com/user/repo"
-echo "  ~/dev_env/scripts/dp.sh list"
+echo "=== VM Ready ==="
+echo ""
+echo "Next steps:"
+echo ""
+echo "1. SSH into the VM:"
+echo "   ssh ${SSH_USER}@dev-vm"
+echo ""
+echo "2. Clone dev_env and run setup:"
+echo "   git clone https://github.com/kirderfg/dev_env.git ~/dev_env"
+echo "   ~/dev_env/scripts/setup-vm.sh"
+echo ""

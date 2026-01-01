@@ -11,7 +11,7 @@ echo "=== DevPod SSH Provider Setup ==="
 if ! command -v devpod &> /dev/null; then
     echo "Error: DevPod is not installed."
     echo ""
-    echo "Run ./setup.sh to install automatically, or install manually:"
+    echo "Run ./scripts/deploy.sh to install automatically, or install manually:"
     echo ""
     echo "  # Linux (amd64)"
     echo "  curl -L -o devpod https://github.com/loft-sh/devpod/releases/latest/download/devpod-linux-amd64"

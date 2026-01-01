@@ -6,52 +6,35 @@ DevPods run on an Azure VM (dev-vm). All devpod management commands are executed
 
 **Network Security**: The VM has **no public SSH access** - all inbound traffic is blocked by NSG. Access is via **Tailscale only**. The VM auto-connects to Tailscale during cloud-init as hostname `dev-vm`.
 
-### Initial VM Setup (Azure Cloud Shell - Recommended)
+### Initial VM Setup (Azure Cloud Shell)
 
-The safest way to deploy is from Azure Cloud Shell - no local dependencies needed.
-
-**Step 1: Open Azure Cloud Shell**
-1. Go to [portal.azure.com](https://portal.azure.com)
-2. Click the Cloud Shell icon (>_) in the top navigation bar
-3. Select **Bash** if prompted for shell type
-4. Wait for the shell to initialize
-
-**Step 2: Deploy the VM**
+**Step 1: Deploy the VM from Cloud Shell**
 ```bash
-# Set your 1Password Service Account Token
-export OP_SERVICE_ACCOUNT_TOKEN='ops_eyJ...'
-
-# Run the bootstrap script (one-liner)
-curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/bootstrap.sh | bash
+# Clone dev_env and run deploy
+git clone https://github.com/kirderfg/dev_env.git
+cd dev_env
+./scripts/deploy.sh
 ```
 
-**What the bootstrap script does:**
-1. Installs 1Password CLI and GitHub CLI
-2. Authenticates with GitHub using PAT from 1Password
-3. Clones the dev_env repo
-4. Fetches Tailscale auth key from 1Password (`op://DEV_CLI/Tailscale/auth_key`)
-5. Deploys the Azure VM with Tailscale auto-connect enabled
-6. Waits for VM to connect to Tailscale, then syncs secrets and clones dev_env
+The deploy script will:
+1. Prompt for your 1Password Service Account Token
+2. Fetch Tailscale auth key from 1Password
+3. Deploy the Azure VM with Tailscale auto-connect
+4. Wait for cloud-init to complete
 
-### Alternative: Local Machine Setup
-If you prefer to run from a local machine with az CLI:
+**Step 2: Setup the VM**
+
+After the VM is ready, SSH in and run setup:
 ```bash
-./setup.sh
+ssh azureuser@dev-vm
+git clone https://github.com/kirderfg/dev_env.git ~/dev_env
+~/dev_env/scripts/setup-vm.sh
 ```
 
-This creates the VM with:
-- Docker and DevPod CLI pre-installed
-- 1Password CLI for secrets
-- Shell-bootstrap (zsh, starship, atuin, yazi, pet, etc.)
-- GitHub CLI authenticated via 1Password PAT
-- Atuin logged in via 1Password credentials
-- The `dev_env` repo cloned to `~/dev_env`
-
-**Two-phase setup:**
-1. **Cloud-init** (during VM creation): Installs packages and shell-bootstrap (tools only, no secrets)
-2. **deploy.sh post-setup**: Uses `az vm run-command` to sync 1Password token and re-run shell-bootstrap to configure gh, atuin
-
-**Note:** The deployment uses `az vm run-command` (not Tailscale SSH) to configure the VM, so it works directly from Azure Cloud Shell without needing Tailscale on the deploying machine.
+The setup script will:
+1. Prompt for your 1Password Service Account Token
+2. Save the token for devpod to use
+3. Run shell-bootstrap to configure gh, atuin, and other tools
 
 ## DevPod Deployment
 
@@ -207,11 +190,10 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 
 ## Key Paths
 
-**On your local machine:**
+**In Azure Cloud Shell:**
 | Path | Purpose |
 |------|---------|
-| `~/.config/dev_env/op_token` | 1Password Service Account token (synced to VM) |
-| `~/dev_env/setup.sh` | Initial VM deployment script |
+| `~/dev_env/scripts/deploy.sh` | VM deployment script |
 
 **SSH access**: `ssh azureuser@dev-vm` (via Tailscale, no public IP)
 
@@ -279,20 +261,10 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 - Re-run: `curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh | bash`
 
 ### gh/atuin not authenticated on VM
-This usually means the token sync during deploy.sh didn't complete. Fix by running sync-secrets.sh from Azure Cloud Shell:
+Run the configure script on the VM:
 ```bash
-cd ~/dev_env
-./scripts/sync-secrets.sh
+ssh azureuser@dev-vm
+~/dev_env/scripts/setup-vm.sh
 ```
 
-Or manually on the VM itself:
-```bash
-# Ensure token exists
-cat ~/.config/dev_env/op_token
-
-# Re-run shell-bootstrap with token
-export OP_SERVICE_ACCOUNT_TOKEN="$(cat ~/.config/dev_env/op_token)"
-curl -fsSL https://raw.githubusercontent.com/kirderfg/shell-bootstrap/main/install.sh -o /tmp/sb.sh
-SHELL_BOOTSTRAP_NONINTERACTIVE=1 bash /tmp/sb.sh
-rm /tmp/sb.sh
-```
+This will prompt for your 1Password token and re-run shell-bootstrap to configure gh and atuin.

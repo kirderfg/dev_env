@@ -80,45 +80,43 @@ The easiest way to deploy - no local setup required:
 - Click the Cloud Shell icon (>_) in the top navigation bar
 - Select **Bash** if prompted
 
-**2. Deploy with one command**
+**2. Deploy the VM**
 ```bash
-export OP_SERVICE_ACCOUNT_TOKEN='ops_eyJ...'
-curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/bootstrap.sh | bash
+git clone https://github.com/kirderfg/dev_env.git
+cd dev_env
+./scripts/deploy.sh
 ```
 
-**3. SSH to VM via Tailscale and start coding**
+The script prompts for your 1Password token, fetches Tailscale keys, and deploys the VM.
+
+**3. Setup the VM**
 ```bash
-# From your laptop (VM auto-connected to Tailscale as 'dev-vm')
+# SSH to VM via Tailscale
 ssh azureuser@dev-vm
 
-# On the VM - create a devpod
+# Clone dev_env and run setup
+git clone https://github.com/kirderfg/dev_env.git ~/dev_env
+~/dev_env/scripts/setup-vm.sh
+```
+
+**4. Start coding**
+```bash
+# Create a devpod
 ~/dev_env/scripts/dp.sh up https://github.com/your/repo
 ```
 
 Note: The VM has no public SSH access. All connections go through Tailscale.
 
-### Alternative: Local Machine Setup
-
-If you have Azure CLI installed locally:
-
-```bash
-az login
-./setup.sh
-./scripts/ssh-connect.sh   # SSH into VM
-```
-
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `scripts/bootstrap.sh` | **Azure Cloud Shell bootstrap** - installs tools, clones repo, deploys VM |
-| `setup.sh` | Deploy VM (requires az CLI login) |
-| `scripts/deploy.sh` | Deploy/update infrastructure, fetches SSH key from 1Password |
+| `scripts/deploy.sh` | **Deploy VM** - prompts for 1Password token, deploys infrastructure |
 | `scripts/dp.sh` | **DevPod wrapper** - run on VM to manage devpods |
 | `scripts/ssh-connect.sh` | SSH into the VM |
 | `scripts/start-vm.sh` | Start a deallocated VM |
 | `scripts/stop-vm.sh` | Stop and deallocate VM (saves compute costs) |
-| `scripts/sync-secrets.sh` | Sync 1Password service account token to VM |
+| `scripts/setup-vm.sh` | Setup VM with 1Password token (interactive prompt) |
 
 ## DevPod Integration
 
@@ -127,12 +125,13 @@ az login
 ### Quick Install
 
 ```bash
-# One command sets up everything (DevPod + VM + configuration)
-az login
-./setup.sh
+# From Azure Cloud Shell or local machine with az CLI
+git clone https://github.com/kirderfg/dev_env.git
+cd dev_env
+./scripts/deploy.sh
 ```
 
-That's it! Now jump to [Usage](#usage).
+Then SSH to the VM and run setup - see [Getting Started](#getting-started) above.
 
 ### How It Works
 
@@ -164,7 +163,7 @@ DevPods are managed **on the VM** using `~/dev_env/scripts/dp.sh`. Each devpod c
 
 **Azure CLI** - [Install instructions](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 
-Everything else is installed automatically by `./setup.sh`.
+Everything else is installed automatically by `./scripts/deploy.sh`.
 
 <details>
 <summary>Manual DevPod installation (if needed)</summary>
@@ -191,15 +190,19 @@ More info: https://devpod.sh/docs/getting-started/install
 ### Setup
 
 ```bash
-# One command does everything
-./setup.sh
+# Deploy the VM
+./scripts/deploy.sh
+
+# SSH in and setup
+ssh azureuser@dev-vm
+git clone https://github.com/kirderfg/dev_env.git ~/dev_env
+~/dev_env/scripts/setup-vm.sh
 ```
 
 **What it does:**
-1. Installs DevPod CLI to `~/.local/bin` (if not present)
-2. Deploys Azure VM (if not exists)
-3. Adds SSH config entry `dev-vm`
-4. Configures DevPod SSH provider
+1. Deploys Azure VM with Tailscale
+2. Installs DevPod, Docker, shell-bootstrap tools
+3. Configures gh, atuin, and other tools via 1Password
 
 ### Usage
 
@@ -343,13 +346,14 @@ The 1Password Service Account Token must be provided to each environment:
 │  ┌─────────────────────┐                ┌──────────────────────────────┐   │
 │  │     AZURE VM        │                │     DEVPOD CONTAINER         │   │
 │  │                     │                │                              │   │
-│  │  sync-secrets.sh    │                │  --workspace-env passes      │   │
-│  │  copies token to:   │                │  OP_SERVICE_ACCOUNT_TOKEN    │   │
-│  │  ~/.config/dev_env/ │                │  to container environment    │   │
-│  │  op_token           │                │                              │   │
-│  │                     │                │  shell-bootstrap picks up    │   │
-│  │  Token persists on  │                │  token from env var and      │   │
-│  │  VM disk (survives  │                │  configures everything       │   │
+│  │  setup-vm.sh        │                │  --workspace-env passes      │   │
+│  │  prompts for token  │                │  OP_SERVICE_ACCOUNT_TOKEN    │   │
+│  │  saves to:          │                │  to container environment    │   │
+│  │  ~/.config/dev_env/ │                │                              │   │
+│  │  op_token           │                │  shell-bootstrap picks up    │   │
+│  │                     │                │  token from env var and      │   │
+│  │  Token persists on  │                │  configures everything       │   │
+│  │  VM disk (survives  │                │                              │   │
 │  │  restarts)          │                │                              │   │
 │  └─────────────────────┘                └──────────────────────────────┘   │
 │                                                                             │
@@ -358,13 +362,15 @@ The 1Password Service Account Token must be provided to each environment:
 
 #### For Azure VM
 
-After deploying the VM, sync your token once:
+After deploying the VM, SSH in and run the setup script:
 
 ```bash
-./scripts/sync-secrets.sh
+ssh azureuser@dev-vm
+git clone https://github.com/kirderfg/dev_env.git ~/dev_env
+~/dev_env/scripts/setup-vm.sh
 ```
 
-The token is saved to the VM and persists across restarts. shell-bootstrap loads it on every shell start.
+The script prompts for your token (input is hidden). The token is saved to the VM and persists across restarts.
 
 #### For DevPod Containers
 
@@ -467,7 +473,6 @@ See [templates/devcontainer/README.md](templates/devcontainer/README.md) for det
 
 ```
 dev_env/
-├── setup.sh                    # One-command setup
 ├── infra/
 │   ├── main.bicep              # Main orchestration
 │   └── modules/
@@ -479,7 +484,7 @@ dev_env/
 │   ├── ssh-connect.sh          # SSH into VM
 │   ├── start-vm.sh             # Start deallocated VM
 │   ├── stop-vm.sh              # Stop and deallocate VM
-│   ├── sync-secrets.sh         # Sync 1Password token to VM
+│   ├── setup-vm.sh             # Setup VM with 1Password token
 │   └── devpod-setup.sh         # Configure DevPod SSH provider
 ├── templates/
 │   └── devcontainer/           # DevContainer template
