@@ -68,6 +68,30 @@ ssh azureuser@dev-vm
 ~/dev_env/scripts/dp.sh delete <ws> # Delete workspace
 ```
 
+### Start/stop all workspaces
+```bash
+~/dev_env/scripts/devpod-start-all.sh   # Start all workspaces
+~/dev_env/scripts/devpod-stop-all.sh    # Stop all workspaces
+```
+
+### Auto-start on VM reboot
+DevPods are configured to auto-start when the VM boots via systemd:
+```bash
+# Check service status
+sudo systemctl status devpod-autostart
+
+# Manually restart all devpods
+sudo systemctl restart devpod-autostart
+
+# Disable auto-start
+sudo systemctl disable devpod-autostart
+
+# Re-enable auto-start (run setup script)
+~/dev_env/scripts/setup-devpod-autostart.sh
+```
+
+**Note**: After VM reboot, Tailscale in each container may take 30-60 seconds to register and become reachable.
+
 The `dp` script automatically:
 - Injects `OP_SERVICE_ACCOUNT_TOKEN` from `~/.config/dev_env/op_token`
 - Sets `SHELL_BOOTSTRAP_NONINTERACTIVE=1`
@@ -197,6 +221,9 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 |------|---------|
 | `~/.config/dev_env/op_token` | 1Password Service Account token |
 | `~/dev_env/scripts/dp.sh` | DevPod wrapper script |
+| `~/dev_env/scripts/devpod-start-all.sh` | Start all workspaces |
+| `~/dev_env/scripts/devpod-stop-all.sh` | Stop all workspaces |
+| `~/dev_env/scripts/setup-devpod-autostart.sh` | Install systemd auto-start service |
 
 **Inside devpod containers:**
 | Path | Purpose |

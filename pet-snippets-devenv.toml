@@ -185,3 +185,25 @@ description = "Scan for secrets with gitleaks"
 command = "gitleaks detect --source . --verbose"
 tag = ["security", "secrets"]
 output = ""
+
+# =============================================================================
+# AZURE VM - Start/Stop dev-vm (run from Cloud Shell or local)
+# =============================================================================
+
+[[snippets]]
+description = "Start dev-vm (wake up)"
+command = "az vm start -g dev-vm-rg -n dev-vm --no-wait && echo 'VM starting... connect via: ssh azureuser@dev-vm'"
+tag = ["azure", "vm"]
+output = ""
+
+[[snippets]]
+description = "Stop dev-vm (save money - deallocates)"
+command = "az vm deallocate -g dev-vm-rg -n dev-vm --no-wait && echo 'VM deallocating... compute billing will stop'"
+tag = ["azure", "vm"]
+output = ""
+
+[[snippets]]
+description = "Check dev-vm status"
+command = "az vm show -g dev-vm-rg -n dev-vm -d --query '{status:powerState,ip:publicIps}' -o table"
+tag = ["azure", "vm"]
+output = ""

@@ -1,0 +1,18 @@
+[Unit]
+Description=Auto-start DevPod workspaces
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=azureuser
+Group=azureuser
+Environment="HOME=/home/azureuser"
+Environment="PATH=/home/azureuser/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/azureuser/dev_env/scripts/devpod-start-all.sh
+ExecStop=/home/azureuser/dev_env/scripts/devpod-stop-all.sh
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
