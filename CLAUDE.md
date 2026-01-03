@@ -279,8 +279,8 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 |------|---------|
 | `~/clouddrive/dev_env/` | dev_env repository (persistent) |
 | `~/clouddrive/bin/op` | 1Password CLI (persistent) |
-| `~/clouddrive/.npm-global/` | npm global packages (persistent) |
-| `~/clouddrive/.npm-global/bin/claude` | Claude Code CLI (persistent) |
+| `~/clouddrive/bin/claude` | Claude Code CLI wrapper (persistent) |
+| `~/clouddrive/.npm-packages/` | npm packages for CLI tools (persistent) |
 
 **Cloud Shell helper commands:**
 | Command | Purpose |
@@ -340,10 +340,11 @@ Azure Cloud Shell resets most files between sessions. Only `~/clouddrive` persis
 - Or source bashrc: `source ~/.bashrc` (if already bootstrapped)
 - Check status: `cloudshell-status`
 
-### Azure Cloud Shell: npm packages disappear
-npm's default global location is not persistent. The bootstrap script configures npm to use `~/clouddrive/.npm-global`.
+### Azure Cloud Shell: npm packages or Claude CLI not working
+Azure Files (backing ~/clouddrive) doesn't support symlinks. The bootstrap script installs npm packages locally and creates wrapper scripts.
 - Re-run bootstrap: `cloudshell-update`
-- Verify npm prefix: `npm config get prefix` (should show `~/clouddrive/.npm-global`)
+- Check Claude wrapper exists: `ls -la ~/clouddrive/bin/claude`
+- Verify package installed: `ls ~/clouddrive/.npm-packages/claude-code/node_modules/@anthropic-ai/claude-code`
 
 ### DevPod appears to hang during deployment
 - Check if Tailscale daemon output is redirected

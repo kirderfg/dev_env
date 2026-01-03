@@ -4,6 +4,9 @@
 # This script sets up a persistent development environment in Azure Cloud Shell.
 # It installs tools to ~/clouddrive which persists across sessions.
 #
+# Note: Azure Files (backing ~/clouddrive) doesn't support symlinks, so we use
+# wrapper scripts instead of npm's default global installs.
+#
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash
 #
@@ -30,7 +33,7 @@ fi
 
 # Persistent directories
 PERSISTENT_BIN="$HOME/clouddrive/bin"
-PERSISTENT_NPM_PREFIX="$HOME/clouddrive/.npm-global"
+PERSISTENT_NPM_PACKAGES="$HOME/clouddrive/.npm-packages"
 PERSISTENT_DEV_ENV="$HOME/clouddrive/dev_env"
 BASHRC="$HOME/.bashrc"
 MARKER="# >>> dev_env cloudshell bootstrap >>>"
@@ -38,7 +41,7 @@ END_MARKER="# <<< dev_env cloudshell bootstrap <<<"
 
 echo "Setting up persistent directories..."
 mkdir -p "$PERSISTENT_BIN"
-mkdir -p "$PERSISTENT_NPM_PREFIX"
+mkdir -p "$PERSISTENT_NPM_PACKAGES"
 
 # Function to add block to .bashrc if not present
 add_bashrc_block() {
@@ -52,12 +55,8 @@ add_bashrc_block() {
 
     cat >> "$BASHRC" << 'BASHRCEOF'
 # >>> dev_env cloudshell bootstrap >>>
-# Persistent bin directory
+# Persistent bin directory (includes wrapper scripts for npm packages)
 export PATH="$HOME/clouddrive/bin:$PATH"
-
-# npm global packages in persistent location
-export NPM_CONFIG_PREFIX="$HOME/clouddrive/.npm-global"
-export PATH="$HOME/clouddrive/.npm-global/bin:$PATH"
 
 # Source dev_env helpers if present
 if [ -f "$HOME/clouddrive/dev_env/scripts/cloudshell-helpers.sh" ]; then
@@ -72,34 +71,6 @@ add_bashrc_block
 
 # Export for current session
 export PATH="$PERSISTENT_BIN:$PATH"
-export NPM_CONFIG_PREFIX="$PERSISTENT_NPM_PREFIX"
-export PATH="$PERSISTENT_NPM_PREFIX/bin:$PATH"
-
-# Configure npm to use persistent prefix
-echo ""
-echo "Configuring npm for persistent global packages..."
-npm config set prefix "$PERSISTENT_NPM_PREFIX"
-
-# Upgrade npm to latest
-echo ""
-echo "Upgrading npm to latest version..."
-CURRENT_NPM=$(npm --version)
-echo "Current npm version: $CURRENT_NPM"
-
-# Install latest npm to the persistent prefix
-npm install -g npm@latest 2>/dev/null || {
-    echo -e "${YELLOW}Warning: npm upgrade had issues, continuing...${NC}"
-}
-
-# Use the newly installed npm
-if [ -x "$PERSISTENT_NPM_PREFIX/bin/npm" ]; then
-    export PATH="$PERSISTENT_NPM_PREFIX/bin:$PATH"
-    NEW_NPM=$("$PERSISTENT_NPM_PREFIX/bin/npm" --version)
-    echo -e "${GREEN}npm upgraded to: $NEW_NPM${NC}"
-else
-    NEW_NPM=$(npm --version)
-    echo "npm version: $NEW_NPM"
-fi
 
 # Install 1Password CLI
 echo ""
@@ -118,19 +89,55 @@ else
 fi
 
 # Install Claude Code CLI
+# Azure Files doesn't support symlinks, so we install the package and create a wrapper script
 echo ""
 echo "Installing Claude Code CLI..."
-if command -v claude &> /dev/null; then
-    CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1 || echo "installed")
-    echo "Claude Code CLI already installed ($CLAUDE_VERSION)"
+CLAUDE_PKG_DIR="$PERSISTENT_NPM_PACKAGES/claude-code"
+
+install_claude() {
+    echo "Installing @anthropic-ai/claude-code package..."
+    rm -rf "$CLAUDE_PKG_DIR"
+    mkdir -p "$CLAUDE_PKG_DIR"
+
+    # Install package to a local directory (no symlinks needed)
+    cd "$CLAUDE_PKG_DIR"
+    npm init -y > /dev/null 2>&1
+    npm install @anthropic-ai/claude-code --save > /dev/null 2>&1
+
+    # Create wrapper script that calls node directly
+    cat > "$PERSISTENT_BIN/claude" << 'WRAPPER_EOF'
+#!/bin/bash
+# Wrapper script for Claude Code CLI
+# Azure Files doesn't support symlinks, so we call node directly
+SCRIPT_DIR="$HOME/clouddrive/.npm-packages/claude-code"
+NODE_PATH="$SCRIPT_DIR/node_modules" exec node "$SCRIPT_DIR/node_modules/@anthropic-ai/claude-code/cli.js" "$@"
+WRAPPER_EOF
+    chmod +x "$PERSISTENT_BIN/claude"
+
+    cd - > /dev/null
+}
+
+if [ -x "$PERSISTENT_BIN/claude" ] && [ -d "$CLAUDE_PKG_DIR/node_modules/@anthropic-ai/claude-code" ]; then
+    # Verify it works
+    if CLAUDE_VERSION=$("$PERSISTENT_BIN/claude" --version 2>/dev/null | head -1); then
+        echo "Claude Code CLI already installed ($CLAUDE_VERSION)"
+    else
+        echo "Claude installation appears broken, reinstalling..."
+        install_claude
+    fi
 else
-    npm install -g @anthropic-ai/claude-code
-    if command -v claude &> /dev/null; then
-        CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1 || echo "installed")
+    install_claude
+fi
+
+# Verify Claude installation
+if [ -x "$PERSISTENT_BIN/claude" ]; then
+    if CLAUDE_VERSION=$("$PERSISTENT_BIN/claude" --version 2>/dev/null | head -1); then
         echo -e "${GREEN}Claude Code CLI installed ($CLAUDE_VERSION)${NC}"
     else
-        echo -e "${YELLOW}Claude Code CLI installed. Restart shell or run: source ~/.bashrc${NC}"
+        echo -e "${YELLOW}Claude Code CLI installed but may need shell restart${NC}"
     fi
+else
+    echo -e "${RED}Claude Code CLI installation failed${NC}"
 fi
 
 # Clone dev_env to persistent location if not present
@@ -145,9 +152,9 @@ else
     echo -e "${GREEN}dev_env cloned to $PERSISTENT_DEV_ENV${NC}"
 fi
 
-# Create convenience symlink
+# Create convenience symlink (in home dir, not clouddrive, so symlinks work)
 if [ ! -L "$HOME/dev_env" ] && [ ! -d "$HOME/dev_env" ]; then
-    ln -s "$PERSISTENT_DEV_ENV" "$HOME/dev_env"
+    ln -s "$PERSISTENT_DEV_ENV" "$HOME/dev_env" 2>/dev/null || true
     echo "Created symlink: ~/dev_env -> $PERSISTENT_DEV_ENV"
 fi
 
@@ -156,8 +163,7 @@ echo -e "${GREEN}=== Bootstrap Complete ===${NC}"
 echo ""
 echo "Installed to persistent storage (~/clouddrive):"
 echo "  - 1Password CLI: $PERSISTENT_BIN/op"
-echo "  - Claude Code CLI: $PERSISTENT_NPM_PREFIX/bin/claude"
-echo "  - npm globals: $PERSISTENT_NPM_PREFIX"
+echo "  - Claude Code CLI: $PERSISTENT_BIN/claude"
 echo "  - dev_env: $PERSISTENT_DEV_ENV"
 echo ""
 echo "PATH configured in ~/.bashrc - changes persist across sessions."
