@@ -13,22 +13,18 @@ cloudshell-status() {
     echo ""
 
     # Check 1Password CLI
-    if command -v op &> /dev/null; then
-        echo "1Password CLI: $(op --version 2>/dev/null || echo 'installed')"
+    if [ -x ~/clouddrive/bin/op ]; then
+        echo "1Password CLI: $(~/clouddrive/bin/op --version 2>/dev/null || echo 'installed')"
     else
         echo "1Password CLI: NOT INSTALLED"
     fi
 
     # Check Claude CLI
-    if command -v claude &> /dev/null; then
-        echo "Claude Code CLI: $(claude --version 2>/dev/null | head -1 || echo 'installed')"
+    if [ -x ~/clouddrive/bin/claude ]; then
+        echo "Claude Code CLI: $(~/clouddrive/bin/claude --version 2>/dev/null | head -1 || echo 'installed')"
     else
         echo "Claude Code CLI: NOT INSTALLED"
     fi
-
-    # Check npm
-    echo "npm: $(npm --version 2>/dev/null || echo 'not found')"
-    echo "npm prefix: $(npm config get prefix 2>/dev/null || echo 'not set')"
 
     # Check node
     echo "Node.js: $(node --version 2>/dev/null || echo 'not found')"
