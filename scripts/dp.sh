@@ -85,11 +85,12 @@ copy_claude_credentials() {
 
     log "Copying Claude credentials to devpod..."
 
-    # Create .claude directory and copy credentials
-    devpod ssh "$workspace" -- "mkdir -p ~/.claude && chmod 700 ~/.claude" 2>/dev/null
-    cat "$claude_creds" | devpod ssh "$workspace" -- "cat > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json" 2>/dev/null
+    # Base64 encode to avoid special character issues with devpod ssh
+    local creds_b64
+    creds_b64=$(base64 -w0 "$claude_creds")
 
-    if [[ $? -eq 0 ]]; then
+    # Create .claude directory and decode credentials
+    if devpod ssh "$workspace" -- "mkdir -p ~/.claude && chmod 700 ~/.claude && echo '$creds_b64' | base64 -d > ~/.claude/.credentials.json && chmod 600 ~/.claude/.credentials.json" 2>/dev/null; then
         log "Claude credentials copied successfully"
     else
         warn "Failed to copy Claude credentials"
@@ -163,6 +164,8 @@ build_devpod_args() {
 
     # Non-interactive mode for shell-bootstrap
     args_ref+=("--workspace-env" "SHELL_BOOTSTRAP_NONINTERACTIVE=1")
+    # Skip 1Password CLI installation (secrets injected by dp.sh)
+    args_ref+=("--workspace-env" "SHELL_BOOTSTRAP_SKIP_1PASSWORD=1")
 }
 
 # Extract workspace name from repo URL
