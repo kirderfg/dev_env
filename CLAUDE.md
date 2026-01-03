@@ -122,10 +122,61 @@ git commit -m "Update devcontainer template"
 - **Tailscale SSH** for remote access (auto-removes old devices on redeploy)
 - **Claude Code CLI** - AI coding assistant in terminal (via shell-bootstrap)
 - **Claude Code UI** - Web interface on port 3001 (access from iPhone/browser via Tailscale)
+- **Task Master** - AI-powered task management via MCP
 - **Shell-bootstrap** for terminal tools (zsh, starship, atuin, yazi, pet, etc.)
 - **Docker-in-Docker** for container operations
 - **Pre-commit hooks** framework
 - **Git + GitHub CLI** configuration
+
+## Task Master
+
+Task Master is an AI-powered task management system integrated as an MCP server for Claude Code. It's available on both the VM and inside devpod containers.
+
+### Usage
+```bash
+# Initialize Task Master in a project
+task-master init --name="my-project" -y
+
+# Parse a PRD to generate tasks
+task-master parse-prd --input=docs/prd.md
+
+# List all tasks
+task-master list
+
+# Get next recommended task
+task-master next
+
+# Update task status
+task-master set-status <id> done
+
+# Expand a task into subtasks
+task-master expand --id=<id>
+```
+
+### Model Configuration
+Task Master is configured to use Claude Code CLI (free, no API key needed):
+```bash
+# Check current model config
+task-master models
+
+# Set main model to use Claude Code CLI
+task-master models --set-main sonnet --claude-code
+```
+
+### MCP Integration
+Task Master tools are available in Claude Code via MCP. The config is at `~/.claude/.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "taskmaster-ai": {
+      "command": "npx",
+      "args": ["-y", "--package=task-master-ai", "task-master-ai"]
+    }
+  }
+}
+```
+
+After restarting Claude Code, use `/mcp` to see available Task Master tools.
 
 ## Important: Users at Each Layer
 

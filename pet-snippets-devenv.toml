@@ -207,3 +207,55 @@ description = "Check dev-vm status"
 command = "az vm show -g dev-vm-rg -n dev-vm -d --query '{status:powerState,ip:publicIps}' -o table"
 tag = ["azure", "vm"]
 output = ""
+
+# =============================================================================
+# TASK MASTER - AI Task Management
+# =============================================================================
+
+[[snippets]]
+description = "Initialize Task Master in project"
+command = "task-master init --name=\"<project_name>\" -y"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Parse PRD to generate tasks"
+command = "task-master parse-prd --input=<prd_file.md>"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "List all tasks"
+command = "task-master list"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Get next recommended task"
+command = "task-master next"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Mark task as done"
+command = "task-master set-status <id> done"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Expand task into subtasks"
+command = "task-master expand --id=<id>"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Show task details"
+command = "task-master show <id>"
+tag = ["taskmaster"]
+output = ""
+
+[[snippets]]
+description = "Configure Task Master to use Claude Code CLI"
+command = "task-master models --set-main sonnet --claude-code"
+tag = ["taskmaster", "config"]
+output = ""

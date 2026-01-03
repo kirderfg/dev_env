@@ -63,6 +63,48 @@ if ! op whoami &>/dev/null; then
 fi
 echo "1Password authenticated successfully"
 
+# Install Node.js 20.x for Task Master and npm packages
+echo ""
+echo "Installing Node.js 20.x..."
+if ! command -v node &> /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    echo "Node.js $(node --version) installed"
+else
+    echo "Node.js $(node --version) already installed"
+fi
+
+# Install Task Master globally
+echo ""
+echo "Installing Task Master..."
+if ! command -v task-master &> /dev/null; then
+    sudo npm install -g task-master-ai
+    echo "Task Master installed"
+else
+    echo "Task Master already installed"
+fi
+
+# Create MCP config for Claude Code
+echo ""
+echo "Configuring Task Master MCP for Claude Code..."
+MCP_CONFIG="${HOME}/.claude/.mcp.json"
+if [ ! -f "$MCP_CONFIG" ]; then
+    mkdir -p "${HOME}/.claude"
+    cat > "$MCP_CONFIG" << 'MCPEOF'
+{
+  "mcpServers": {
+    "taskmaster-ai": {
+      "command": "npx",
+      "args": ["-y", "--package=task-master-ai", "task-master-ai"]
+    }
+  }
+}
+MCPEOF
+    echo "MCP config created at $MCP_CONFIG"
+else
+    echo "MCP config already exists"
+fi
+
 # Run shell-bootstrap to configure gh/atuin/git/pet
 echo ""
 echo "Running shell-bootstrap to configure gh, atuin, git, pet..."
