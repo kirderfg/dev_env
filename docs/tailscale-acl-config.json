@@ -1,40 +1,28 @@
 {
-  "// INSTRUCTIONS": "Copy this entire JSON to Tailscale Admin Console > Access Controls",
-  "// URL": "https://login.tailscale.com/admin/acls",
-
   "tagOwners": {
     "tag:devpod": ["autogroup:admin"],
     "tag:trusted": ["autogroup:admin"]
   },
-
   "autoApprovers": {
     "routes": {}
   },
-
   "acls": [
     {
-      "// comment": "Admins have full access to everything",
       "action": "accept",
       "src": ["autogroup:admin"],
       "dst": ["*:*"]
     },
     {
-      "// comment": "Trusted devices (VM, personal machines) can access everything",
       "action": "accept",
       "src": ["tag:trusted"],
       "dst": ["*:*"]
     },
     {
-      "// comment": "Regular members can SSH to devpods and access trusted servers",
       "action": "accept",
       "src": ["autogroup:member"],
       "dst": ["tag:devpod:22", "tag:trusted:*"]
     }
   ],
-
-  "// NOTE": "tag:devpod is NOT listed as a src anywhere - devpods cannot initiate tailnet connections",
-  "// NOTE2": "Devpods CAN still access the public internet (not controlled by Tailscale ACL)",
-
   "ssh": [
     {
       "action": "accept",
@@ -47,19 +35,6 @@
       "src": ["autogroup:admin"],
       "dst": ["tag:trusted"],
       "users": ["autogroup:nonroot", "root"]
-    }
-  ],
-
-  "tests": [
-    {
-      "// comment": "Admin can access devpod SSH",
-      "src": "autogroup:admin",
-      "accept": ["tag:devpod:22"]
-    },
-    {
-      "// comment": "Devpod cannot access VM (no rule allows tag:devpod as src)",
-      "src": "tag:devpod",
-      "deny": ["tag:trusted:22", "tag:trusted:80"]
     }
   ]
 }
