@@ -12,7 +12,7 @@ DevPods run on an Azure VM (dev-vm). All devpod management commands are executed
 
 Azure Cloud Shell resets most files between sessions. Run this bootstrap once to install persistent tools:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash
+git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
 source ~/.bashrc
 ```
 
