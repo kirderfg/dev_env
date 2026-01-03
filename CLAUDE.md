@@ -8,11 +8,25 @@ DevPods run on an Azure VM (dev-vm). All devpod management commands are executed
 
 ### Initial VM Setup (Azure Cloud Shell)
 
+**Step 0: Bootstrap Cloud Shell (first time only)**
+
+Azure Cloud Shell resets most files between sessions. Run this bootstrap once to install persistent tools:
+```bash
+curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash
+source ~/.bashrc
+```
+
+This installs to `~/clouddrive` (persistent) and configures:
+- 1Password CLI (`op`)
+- Claude Code CLI (`claude`)
+- npm with persistent global packages
+- dev_env repository
+
+After bootstrap, you can use `cloudshell-status` to check installed tools.
+
 **Step 1: Deploy the VM from Cloud Shell**
 ```bash
-# Clone dev_env and run deploy
-git clone https://github.com/kirderfg/dev_env.git
-cd dev_env
+cd ~/clouddrive/dev_env
 ./scripts/deploy.sh
 ```
 
@@ -260,10 +274,22 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 
 ## Key Paths
 
-**In Azure Cloud Shell:**
+**In Azure Cloud Shell (persistent in ~/clouddrive):**
 | Path | Purpose |
 |------|---------|
-| `~/dev_env/scripts/deploy.sh` | VM deployment script |
+| `~/clouddrive/dev_env/` | dev_env repository (persistent) |
+| `~/clouddrive/bin/op` | 1Password CLI (persistent) |
+| `~/clouddrive/.npm-global/` | npm global packages (persistent) |
+| `~/clouddrive/.npm-global/bin/claude` | Claude Code CLI (persistent) |
+
+**Cloud Shell helper commands:**
+| Command | Purpose |
+|---------|---------|
+| `cloudshell-status` | Show installed tools and status |
+| `cloudshell-update` | Update/reinstall all tools |
+| `cloudshell-help` | Show available commands |
+| `deploy` | Alias for deploy.sh |
+| `ssh-vm` | SSH to dev-vm via Tailscale |
 
 **SSH access**: `ssh azureuser@dev-vm` (via Tailscale, no public IP)
 
@@ -307,6 +333,17 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 ```
 
 ## Troubleshooting
+
+### Azure Cloud Shell: `op` or `claude` not found after restart
+Azure Cloud Shell resets most files between sessions. Only `~/clouddrive` persists.
+- Run the bootstrap script: `bash ~/clouddrive/dev_env/scripts/setup-cloudshell.sh`
+- Or source bashrc: `source ~/.bashrc` (if already bootstrapped)
+- Check status: `cloudshell-status`
+
+### Azure Cloud Shell: npm packages disappear
+npm's default global location is not persistent. The bootstrap script configures npm to use `~/clouddrive/.npm-global`.
+- Re-run bootstrap: `cloudshell-update`
+- Verify npm prefix: `npm config get prefix` (should show `~/clouddrive/.npm-global`)
 
 ### DevPod appears to hang during deployment
 - Check if Tailscale daemon output is redirected
