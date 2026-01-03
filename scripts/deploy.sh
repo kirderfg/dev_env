@@ -26,17 +26,51 @@ if ! az account show &> /dev/null; then
     exit 1
 fi
 
-# Install 1Password CLI if not present (for Cloud Shell)
+# Check for Azure Cloud Shell and recommend persistent setup
+if [ -n "$AZURE_HTTP_USER_AGENT" ] || [ -d ~/clouddrive ]; then
+    # We're in Azure Cloud Shell
+    PERSISTENT_BIN="$HOME/clouddrive/bin"
+    PERSISTENT_NPM_PREFIX="$HOME/clouddrive/.npm-global"
+
+    # Add persistent paths to PATH for this session
+    export PATH="$PERSISTENT_BIN:$PERSISTENT_NPM_PREFIX/bin:$PATH"
+
+    # Check if bootstrap has been run
+    if [ ! -x "$PERSISTENT_BIN/op" ]; then
+        echo ""
+        echo "Azure Cloud Shell detected but persistent tools not installed."
+        echo ""
+        echo "For a better experience with persistent installations, run:"
+        echo "  curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash"
+        echo "  source ~/.bashrc"
+        echo ""
+        echo "This installs tools to ~/clouddrive so they persist across sessions."
+        echo ""
+        read -p "Continue with temporary installation? (y/n): " -n 1 -r </dev/tty
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 0
+        fi
+    fi
+fi
+
+# Install 1Password CLI if not present
 if ! command -v op &> /dev/null; then
     echo "Installing 1Password CLI..."
-    mkdir -p ~/bin
+    # Use persistent location in Cloud Shell, otherwise ~/bin
+    if [ -d ~/clouddrive ]; then
+        INSTALL_BIN="$HOME/clouddrive/bin"
+    else
+        INSTALL_BIN="$HOME/bin"
+    fi
+    mkdir -p "$INSTALL_BIN"
     curl -sSfLo /tmp/op.zip "https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.0/op_linux_amd64_v2.30.0.zip"
     unzip -o -q /tmp/op.zip -d /tmp/op_extracted
-    mv /tmp/op_extracted/op ~/bin/op
-    chmod +x ~/bin/op
+    mv /tmp/op_extracted/op "$INSTALL_BIN/op"
+    chmod +x "$INSTALL_BIN/op"
     rm -rf /tmp/op.zip /tmp/op_extracted
-    export PATH="$HOME/bin:$PATH"
-    echo "1Password CLI installed"
+    export PATH="$INSTALL_BIN:$PATH"
+    echo "1Password CLI installed to $INSTALL_BIN/op"
 fi
 
 # Prompt for 1Password token
