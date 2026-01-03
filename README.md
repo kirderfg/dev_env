@@ -80,16 +80,25 @@ The easiest way to deploy - no local setup required:
 - Click the Cloud Shell icon (>_) in the top navigation bar
 - Select **Bash** if prompted
 
-**2. Deploy the VM**
+**2. Bootstrap Cloud Shell (first time only)**
+
+Azure Cloud Shell resets most files between sessions. Run this once to install persistent tools:
 ```bash
-git clone https://github.com/kirderfg/dev_env.git
-cd dev_env
+git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
+source ~/.bashrc
+```
+
+This installs to `~/clouddrive` (persistent): 1Password CLI, Claude Code CLI, and dev_env.
+
+**3. Deploy the VM**
+```bash
+cd ~/clouddrive/dev_env
 ./scripts/deploy.sh
 ```
 
 The script prompts for your 1Password token, fetches Tailscale keys, and deploys the VM.
 
-**3. Setup the VM**
+**4. Setup the VM**
 ```bash
 # SSH to VM via Tailscale
 ssh azureuser@dev-vm
@@ -99,7 +108,7 @@ git clone https://github.com/kirderfg/dev_env.git ~/dev_env
 ~/dev_env/scripts/setup-vm.sh
 ```
 
-**4. Start coding**
+**5. Start coding**
 ```bash
 # Create a devpod
 ~/dev_env/scripts/dp.sh up https://github.com/your/repo
