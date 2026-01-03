@@ -1,40 +1,41 @@
 {
-  "tagOwners": {
-    "tag:devpod": ["autogroup:admin"],
-    "tag:trusted": ["autogroup:admin"]
-  },
-  "autoApprovers": {
-    "routes": {}
-  },
-  "acls": [
-    {
-      "action": "accept",
-      "src": ["autogroup:admin"],
-      "dst": ["*:*"]
-    },
-    {
-      "action": "accept",
-      "src": ["tag:trusted"],
-      "dst": ["*:*"]
-    },
-    {
-      "action": "accept",
-      "src": ["autogroup:member"],
-      "dst": ["tag:devpod:22", "tag:trusted:*"]
-    }
-  ],
-  "ssh": [
-    {
-      "action": "accept",
-      "src": ["autogroup:admin", "autogroup:member"],
-      "dst": ["tag:devpod"],
-      "users": ["root", "autogroup:nonroot"]
-    },
-    {
-      "action": "accept",
-      "src": ["autogroup:admin"],
-      "dst": ["tag:trusted"],
-      "users": ["autogroup:nonroot", "root"]
-    }
-  ]
+	"tagOwners": {
+		"tag:devpod":  ["autogroup:admin"],
+		"tag:trusted": ["autogroup:admin"],
+	},
+
+	"autoApprovers": {"routes": {}},
+
+	"acls": [
+		{
+			"action": "accept",
+			"src":    ["autogroup:admin"],
+			"dst":    ["*:*"],
+		},
+		{
+			"action": "accept",
+			"src":    ["tag:trusted"],
+			"dst":    ["*:*"],
+		},
+		{
+			"action": "accept",
+			"src":    ["autogroup:member"],
+			"dst":    ["tag:devpod:22", "tag:trusted:*"],
+		},
+	],
+
+	"ssh": [
+		{
+			"src":    ["autogroup:admin", "autogroup:member", "tag:trusted"],
+			"dst":    ["tag:devpod"],
+			"users":  ["root", "autogroup:nonroot"],
+			"action": "accept",
+		},
+		{
+			"action": "accept",
+			"src":    ["autogroup:admin"],
+			"dst":    ["tag:trusted"],
+			"users":  ["autogroup:nonroot", "root"],
+		},
+	],
 }
