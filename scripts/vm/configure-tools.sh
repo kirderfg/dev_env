@@ -56,14 +56,14 @@ configure_atuin() {
     fi
 
     log "Configuring Atuin..."
-    # Login to Atuin
+    # Login to Atuin (use -p flag instead of piping password for non-interactive mode)
     if [[ -n "$ATUIN_KEY" ]]; then
-        echo "$ATUIN_PASSWORD" | atuin login -u "$ATUIN_USERNAME" --key "$ATUIN_KEY" 2>/dev/null || {
+        atuin login -u "$ATUIN_USERNAME" -p "$ATUIN_PASSWORD" -k "$ATUIN_KEY" 2>/dev/null || {
             warn "Atuin login failed"
             return 0
         }
     else
-        echo "$ATUIN_PASSWORD" | atuin login -u "$ATUIN_USERNAME" 2>/dev/null || {
+        atuin login -u "$ATUIN_USERNAME" -p "$ATUIN_PASSWORD" 2>/dev/null || {
             warn "Atuin login failed"
             return 0
         }
