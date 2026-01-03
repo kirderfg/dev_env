@@ -61,9 +61,11 @@ read_secrets() {
 
     # Tailscale auth key (tagged for devpod - receive only)
     # Use devpod_auth_key if available, fallback to regular auth_key
-    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/devpod_auth_key" 2>/dev/null) || \
-                        $(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null) || true
-    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null) || true
+    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/devpod_auth_key" 2>/dev/null || echo "")
+    if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
+        TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || echo "")
+    fi
+    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null || echo "")
     if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
         log "  - Tailscale keys loaded"
     fi
