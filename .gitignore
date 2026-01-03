@@ -36,3 +36,7 @@ node_modules/
 # Task Master (project-specific)
 .taskmaster/
 .env.example
+
+# Task files
+# tasks.json
+# tasks/ 
