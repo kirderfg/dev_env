@@ -104,7 +104,8 @@ install_claude() {
     npm init -y > /dev/null 2>&1 || true
 
     echo "Running npm install (this may take a minute)..."
-    if ! npm install @anthropic-ai/claude-code --save 2>&1; then
+    # Use --no-bin-links because Azure Files doesn't support symlinks
+    if ! npm install @anthropic-ai/claude-code --save --no-bin-links 2>&1; then
         echo -e "${RED}npm install failed${NC}"
         cd - > /dev/null
         return 1
