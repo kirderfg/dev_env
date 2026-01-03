@@ -88,6 +88,39 @@ else
     echo -e "${GREEN}1Password CLI v${OP_VERSION} installed to $PERSISTENT_BIN/op${NC}"
 fi
 
+# Check Node.js version and install newer if needed
+echo ""
+echo "Checking Node.js version..."
+NODE_VERSION=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
+REQUIRED_NODE_VERSION=18
+
+if [ -z "$NODE_VERSION" ] || [ "$NODE_VERSION" -lt "$REQUIRED_NODE_VERSION" ]; then
+    echo "Node.js v$NODE_VERSION is too old. Claude Code requires Node.js $REQUIRED_NODE_VERSION+."
+    echo "Installing Node.js 20.x to persistent storage..."
+
+    NODE_DIR="$HOME/clouddrive/.node"
+    mkdir -p "$NODE_DIR"
+
+    # Download and extract Node.js
+    NODE_DIST_VERSION="20.18.0"
+    if [ ! -x "$NODE_DIR/bin/node" ]; then
+        curl -sL "https://nodejs.org/dist/v${NODE_DIST_VERSION}/node-v${NODE_DIST_VERSION}-linux-x64.tar.xz" | tar -xJ -C "$NODE_DIR" --strip-components=1
+        echo -e "${GREEN}Node.js v${NODE_DIST_VERSION} installed to $NODE_DIR${NC}"
+    fi
+
+    # Add to PATH for this session and future sessions
+    export PATH="$NODE_DIR/bin:$PATH"
+
+    # Update bashrc block to include node path
+    if ! grep -q "clouddrive/.node/bin" "$BASHRC" 2>/dev/null; then
+        sed -i "s|export PATH=\"\$HOME/clouddrive/bin:\$PATH\"|export PATH=\"\$HOME/clouddrive/.node/bin:\$HOME/clouddrive/bin:\$PATH\"|" "$BASHRC"
+    fi
+
+    echo "Node.js $(node --version) now active"
+else
+    echo "Node.js v$NODE_VERSION is sufficient"
+fi
+
 # Install Claude Code CLI
 # Azure Files doesn't support symlinks, so we install the package and create a wrapper script
 echo ""
@@ -124,7 +157,13 @@ install_claude() {
 # Wrapper script for Claude Code CLI
 # Azure Files doesn't support symlinks, so we call node directly
 SCRIPT_DIR="$HOME/clouddrive/.npm-packages/claude-code"
-NODE_PATH="$SCRIPT_DIR/node_modules" exec node "$SCRIPT_DIR/node_modules/@anthropic-ai/claude-code/cli.js" "$@"
+# Use persistent node if available, otherwise system node
+if [ -x "$HOME/clouddrive/.node/bin/node" ]; then
+    NODE_BIN="$HOME/clouddrive/.node/bin/node"
+else
+    NODE_BIN="node"
+fi
+NODE_PATH="$SCRIPT_DIR/node_modules" exec "$NODE_BIN" "$SCRIPT_DIR/node_modules/@anthropic-ai/claude-code/cli.js" "$@"
 WRAPPER_EOF
     chmod +x "$PERSISTENT_BIN/claude"
     echo -e "${GREEN}Claude Code wrapper created${NC}"
