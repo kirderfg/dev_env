@@ -6,7 +6,7 @@ A cost-effective Azure VM for container development in Sweden Central, with DevP
 
 | Component | Value |
 |-----------|-------|
-| VM Size | Standard_D4s_v5 (4 vCPU, 16GB RAM) |
+| VM Size | Standard_D8s_v6 (8 vCPU, 32GB RAM) |
 | OS | Ubuntu 24.04 LTS |
 | Disk | 64GB Premium SSD |
 | Region | Sweden Central |
@@ -84,7 +84,7 @@ The easiest way to deploy - no local setup required:
 
 Azure Cloud Shell resets most files between sessions. Run this once to install persistent tools:
 ```bash
-git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
+git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/cloudshell/setup.sh
 source ~/.bashrc
 ```
 
