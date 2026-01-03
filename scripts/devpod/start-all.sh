@@ -1,20 +1,15 @@
 #!/bin/bash
 # Start all devpod workspaces
-# Usage: devpod-start-all.sh [--wait]
+# Usage: start-all.sh [--wait]
 
 set -e
 
+# Source core utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="devpod-start-all"
+source "$SCRIPT_DIR/../core/common.sh"
+
 DP_SCRIPT="$SCRIPT_DIR/dp.sh"
-
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-log() { echo -e "${GREEN}[devpod-start-all]${NC} $1"; }
-warn() { echo -e "${YELLOW}[devpod-start-all]${NC} $1"; }
-error() { echo -e "${RED}[devpod-start-all]${NC} $1" >&2; }
 
 # Get list of all workspaces
 get_workspaces() {

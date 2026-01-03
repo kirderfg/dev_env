@@ -12,7 +12,7 @@ DevPods run on an Azure VM (dev-vm). All devpod management commands are executed
 
 Azure Cloud Shell resets most files between sessions. Run this bootstrap once to install persistent tools:
 ```bash
-git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
+git clone https://github.com/kirderfg/dev_env.git ~/clouddrive/dev_env && ~/clouddrive/dev_env/scripts/cloudshell/setup.sh
 source ~/.bashrc
 ```
 
@@ -27,7 +27,7 @@ After bootstrap, you can use `cloudshell-status` to check installed tools.
 **Step 1: Deploy the VM from Cloud Shell**
 ```bash
 cd ~/clouddrive/dev_env
-./scripts/deploy.sh
+./scripts/azure/deploy.sh
 ```
 
 The deploy script will:
@@ -42,7 +42,7 @@ After the VM is ready, SSH in and run setup:
 ```bash
 ssh azureuser@dev-vm
 git clone https://github.com/kirderfg/dev_env.git ~/dev_env
-~/dev_env/scripts/setup-vm.sh
+~/dev_env/scripts/vm/setup.sh
 ```
 
 The setup script will:
@@ -61,31 +61,31 @@ ssh azureuser@dev-vm
 
 ### Deploy a new workspace (on VM)
 ```bash
-~/dev_env/scripts/dp.sh up https://github.com/user/repo
+~/dev_env/scripts/devpod/dp.sh up https://github.com/user/repo
 ```
 
 ### Rebuild an existing workspace
 ```bash
-~/dev_env/scripts/dp.sh rebuild workspace-name
+~/dev_env/scripts/devpod/dp.sh rebuild workspace-name
 ```
 
 ### Delete and redeploy (full reset)
 ```bash
-~/dev_env/scripts/dp.sh delete workspace-name
-~/dev_env/scripts/dp.sh up https://github.com/user/repo
+~/dev_env/scripts/devpod/dp.sh delete workspace-name
+~/dev_env/scripts/devpod/dp.sh up https://github.com/user/repo
 ```
 
 ### Other commands
 ```bash
-~/dev_env/scripts/dp.sh list        # List workspaces
-~/dev_env/scripts/dp.sh ssh <ws>    # SSH into workspace
-~/dev_env/scripts/dp.sh delete <ws> # Delete workspace
+~/dev_env/scripts/devpod/dp.sh list        # List workspaces
+~/dev_env/scripts/devpod/dp.sh ssh <ws>    # SSH into workspace
+~/dev_env/scripts/devpod/dp.sh delete <ws> # Delete workspace
 ```
 
 ### Start/stop all workspaces
 ```bash
-~/dev_env/scripts/devpod-start-all.sh   # Start all workspaces
-~/dev_env/scripts/devpod-stop-all.sh    # Stop all workspaces
+~/dev_env/scripts/devpod/start-all.sh   # Start all workspaces
+~/dev_env/scripts/devpod/stop-all.sh    # Stop all workspaces
 ```
 
 ### Auto-start on VM reboot
@@ -101,46 +101,33 @@ sudo systemctl restart devpod-autostart
 sudo systemctl disable devpod-autostart
 
 # Re-enable auto-start (run setup script)
-~/dev_env/scripts/setup-devpod-autostart.sh
+~/dev_env/scripts/devpod/setup-autostart.sh
 ```
 
 **Note**: After VM reboot, Tailscale in each container may take 30-60 seconds to register and become reachable.
 
 The `dp` script automatically:
-- Injects `OP_SERVICE_ACCOUNT_TOKEN` from `~/.config/dev_env/op_token`
-- Sets `SHELL_BOOTSTRAP_NONINTERACTIVE=1`
+- Reads secrets from 1Password and injects them as environment variables
+- Does NOT pass `OP_SERVICE_ACCOUNT_TOKEN` to containers (secrets stay on VM)
+- Sets `SHELL_BOOTSTRAP_NONINTERACTIVE=1` and `SHELL_BOOTSTRAP_SKIP_1PASSWORD=1`
 - Defaults to `--ide none` (no browser VSCode); override with `--ide vscode` if needed
 - Uses the local `docker` provider
 
 ## DevContainer Template
 
-Projects should use the shared template from the [devcontainer-template](https://github.com/kirderfg/devcontainer-template) repo via **git submodule**.
-
-### Add template to a project
-```bash
-cd /path/to/project
-git submodule add https://github.com/kirderfg/devcontainer-template.git .devcontainer
-git commit -m "Add devcontainer template as submodule"
-git push
-```
-
-### Update the template in a project
-```bash
-git submodule update --remote .devcontainer
-git commit -m "Update devcontainer template"
-```
+The devcontainer configuration is built into this repo at `devcontainer/`. Projects can copy this or reference it.
 
 ### What the template provides
 - **Python 3.12 + Node 20** base image
-- **1Password CLI** for secret management
 - **Tailscale SSH** for remote access (auto-removes old devices on redeploy)
-- **Claude Code CLI** - AI coding assistant in terminal (via shell-bootstrap)
-- **Claude Code UI** - Web interface on port 3001 (access from iPhone/browser via Tailscale)
+- **Claude Code CLI** - AI coding assistant in terminal
 - **Task Master** - AI-powered task management via MCP
-- **Shell-bootstrap** for terminal tools (zsh, starship, atuin, yazi, pet, etc.)
+- **Shell tools** (zsh, starship, atuin, delta, pet)
 - **Docker-in-Docker** for container operations
 - **Pre-commit hooks** framework
 - **Git + GitHub CLI** configuration
+
+**Security Note**: DevPod containers do NOT have access to 1Password. Secrets are injected as environment variables by `dp.sh` on the VM.
 
 ## Task Master
 
@@ -205,7 +192,7 @@ There are two different contexts with different users:
 ### 2. Devpod Containers
 - **Default user:** `vscode` (from Python devcontainer image, uid 1000)
 - **Access via Tailscale SSH:** `ssh root@devpod-<workspace-name>`
-- **Access via devpod:** `~/dev_env/scripts/dp.sh ssh <workspace-name>`
+- **Access via devpod:** `~/dev_env/scripts/devpod/dp.sh ssh <workspace-name>`
 - Shell-bootstrap installs to `/home/vscode/`
 - The `dev` alias and all tools work for `vscode` user
 
@@ -297,10 +284,12 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 | Path | Purpose |
 |------|---------|
 | `~/.config/dev_env/op_token` | 1Password Service Account token |
-| `~/dev_env/scripts/dp.sh` | DevPod wrapper script |
-| `~/dev_env/scripts/devpod-start-all.sh` | Start all workspaces |
-| `~/dev_env/scripts/devpod-stop-all.sh` | Stop all workspaces |
-| `~/dev_env/scripts/setup-devpod-autostart.sh` | Install systemd auto-start service |
+| `~/dev_env/scripts/devpod/dp.sh` | DevPod wrapper script |
+| `~/dev_env/scripts/devpod/start-all.sh` | Start all workspaces |
+| `~/dev_env/scripts/devpod/stop-all.sh` | Stop all workspaces |
+| `~/dev_env/scripts/devpod/setup-autostart.sh` | Install systemd auto-start service |
+| `~/dev_env/scripts/vm/setup.sh` | VM setup script |
+| `~/dev_env/scripts/azure/deploy.sh` | Azure VM deployment |
 
 **Inside devpod containers:**
 | Path | Purpose |
@@ -310,17 +299,17 @@ The devcontainer template reads these secrets from 1Password vault `DEV_CLI`:
 ## Common Mistakes to Avoid
 
 ### 1. Using `devpod` directly
-Always use `~/dev_env/scripts/dp.sh` - it injects the 1Password token.
+Always use `~/dev_env/scripts/devpod/dp.sh` - it injects secrets as env vars.
 
-### 2. Modifying devcontainer files without updating template
-If you fix something in a project's devcontainer, also update the template in the [devcontainer-template](https://github.com/kirderfg/devcontainer-template) repo.
+### 2. Modifying devcontainer files without updating dev_env
+If you fix something in a project's devcontainer, also update the template in the `devcontainer/` directory of this repo.
 
 ### 3. Forgetting to delete cached images on rebuild
 If `--recreate` doesn't pick up devcontainer.json changes (like new base image):
 ```bash
-~/dev_env/scripts/dp.sh delete workspace-name
+~/dev_env/scripts/devpod/dp.sh delete workspace-name
 docker image prune -f
-~/dev_env/scripts/dp.sh up https://github.com/user/repo
+~/dev_env/scripts/devpod/dp.sh up https://github.com/user/repo
 ```
 
 ### 4. Port forwarding issues
@@ -336,7 +325,7 @@ sudo tailscaled --state=... --socket=... > /tmp/tailscaled.log 2>&1 &
 
 ### Azure Cloud Shell: `op` or `claude` not found after restart
 Azure Cloud Shell resets most files between sessions. Only `~/clouddrive` persists.
-- Run the bootstrap script: `bash ~/clouddrive/dev_env/scripts/setup-cloudshell.sh`
+- Run the bootstrap script: `bash ~/clouddrive/dev_env/scripts/cloudshell/setup.sh`
 - Or source bashrc: `source ~/.bashrc` (if already bootstrapped)
 - Check status: `cloudshell-status`
 
@@ -358,7 +347,7 @@ Azure Files (backing ~/clouddrive) doesn't support symlinks. The bootstrap scrip
 ### `su: user vscode does not exist`
 - You're on the **VM**, not inside a devpod container
 - The `vscode` user only exists inside devpod containers
-- To enter a container: `~/dev_env/scripts/dp.sh ssh <workspace-name>`
+- To enter a container: `~/dev_env/scripts/devpod/dp.sh ssh <workspace-name>`
 - Or via Tailscale: `ssh root@devpod-<workspace-name>`
 
 ### Tailscale device already exists
@@ -374,7 +363,7 @@ Azure Files (backing ~/clouddrive) doesn't support symlinks. The bootstrap scrip
 Run the configure script on the VM:
 ```bash
 ssh azureuser@dev-vm
-~/dev_env/scripts/setup-vm.sh
+~/dev_env/scripts/vm/setup.sh
 ```
 
-This will prompt for your 1Password token and re-run shell-bootstrap to configure gh and atuin.
+This will prompt for your 1Password token and configure tools via 1Password.

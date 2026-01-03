@@ -1,0 +1,44 @@
+# Dev Environment ZSH Configuration
+
+# Vi mode
+bindkey -v
+export KEYTIMEOUT=1
+
+# History
+HISTFILE=~/.zsh_history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+
+# Basic aliases
+alias ll='ls -la'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Git aliases
+alias gs='git status'
+alias gp='git pull'
+alias gd='git diff'
+alias ga='git add'
+alias gc='git commit'
+
+# Dev environment
+alias dev='source ~/.config/dev_env/secrets.sh 2>/dev/null; cd ~/workspace'
+
+# Starship prompt
+if command -v starship &> /dev/null; then
+    eval "$(starship init zsh)"
+fi
+
+# Atuin shell history
+if command -v atuin &> /dev/null; then
+    eval "$(atuin init zsh)"
+fi
+
+# Source secrets if available (in devpod containers)
+[[ -f ~/.config/dev_env/secrets.sh ]] && source ~/.config/dev_env/secrets.sh
+
+# FZF
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

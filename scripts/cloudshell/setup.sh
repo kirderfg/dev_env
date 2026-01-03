@@ -8,10 +8,10 @@
 # wrapper scripts instead of npm's default global installs.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/cloudshell/setup.sh | bash
 #
 # Or if you've already cloned:
-#   ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
+#   ~/clouddrive/dev_env/scripts/cloudshell/setup.sh
 
 set -e
 
@@ -59,8 +59,8 @@ add_bashrc_block() {
 export PATH="$HOME/clouddrive/bin:$PATH"
 
 # Source dev_env helpers if present
-if [ -f "$HOME/clouddrive/dev_env/scripts/cloudshell-helpers.sh" ]; then
-    source "$HOME/clouddrive/dev_env/scripts/cloudshell-helpers.sh"
+if [ -f "$HOME/clouddrive/dev_env/scripts/cloudshell/helpers.sh" ]; then
+    source "$HOME/clouddrive/dev_env/scripts/cloudshell/helpers.sh"
 fi
 # <<< dev_env cloudshell bootstrap <<<
 BASHRCEOF
@@ -173,5 +173,5 @@ echo "  source ~/.bashrc"
 echo ""
 echo -e "${YELLOW}Next steps for VM deployment:${NC}"
 echo "  cd ~/clouddrive/dev_env"
-echo "  ./scripts/deploy.sh"
+echo "  ./scripts/azure/deploy.sh"
 echo ""

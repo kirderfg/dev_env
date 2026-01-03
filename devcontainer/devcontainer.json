@@ -1,0 +1,33 @@
+{
+    "name": "Dev Environment",
+    "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+    "runArgs": [
+        "--cap-add=NET_ADMIN",
+        "--cap-add=NET_RAW",
+        "--device=/dev/net/tun"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "20"
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/pre-commit:2": {}
+    },
+    "onCreateCommand": "bash .devcontainer/setup.sh",
+    "postStartCommand": "bash .devcontainer/startup.sh",
+    "remoteUser": "vscode",
+    "containerEnv": {
+        "SHELL": "/bin/zsh"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "esbenp.prettier-vscode",
+                "dbaeumer.vscode-eslint"
+            ]
+        }
+    }
+}

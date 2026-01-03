@@ -1,28 +1,40 @@
 #!/bin/bash
 set -e
 
+# Source core utilities if available (won't exist in Cloud Shell before bootstrap)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/../core/common.sh" ]]; then
+    SCRIPT_NAME="deploy"
+    source "$SCRIPT_DIR/../core/common.sh"
+else
+    # Fallback for Cloud Shell (before bootstrap)
+    log() { echo -e "\033[0;32m[deploy]\033[0m $1"; }
+    warn() { echo -e "\033[1;33m[deploy]\033[0m $1"; }
+    error() { echo -e "\033[0;31m[deploy]\033[0m $1" >&2; }
+    info() { echo -e "\033[0;34m[deploy]\033[0m $1"; }
+fi
+
 # Configuration
 RESOURCE_GROUP="rg-dev-env"
 LOCATION="swedencentral"
 VM_NAME="vm-dev"
 SSH_USER="azureuser"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INFRA_DIR="${SCRIPT_DIR}/../infra"
-ENV_FILE="${SCRIPT_DIR}/../.env"
+INFRA_DIR="${SCRIPT_DIR}/../../infra"
+ENV_FILE="${SCRIPT_DIR}/../../.env"
 
-echo "=== Azure Dev VM Deployment ==="
+log "=== Azure Dev VM Deployment ==="
 echo ""
 
 # Check if Azure CLI is installed
 if ! command -v az &> /dev/null; then
-    echo "Error: Azure CLI is not installed."
-    echo "Run this from Azure Cloud Shell or install az CLI locally."
+    error "Azure CLI is not installed."
+    error "Run this from Azure Cloud Shell or install az CLI locally."
     exit 1
 fi
 
 # Check if logged in to Azure
 if ! az account show &> /dev/null; then
-    echo "Error: Not logged in to Azure. Run 'az login' first."
+    error "Not logged in to Azure. Run 'az login' first."
     exit 1
 fi
 
@@ -40,11 +52,11 @@ if [ -n "$AZURE_HTTP_USER_AGENT" ] || [ -d ~/clouddrive ]; then
         echo ""
         echo "Azure Cloud Shell detected but persistent tools not installed."
         echo ""
-        echo "For a better experience with persistent installations, run:"
-        echo "  curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash"
+        info "For a better experience with persistent installations, run:"
+        echo "  curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/cloudshell/setup.sh | bash"
         echo "  source ~/.bashrc"
         echo ""
-        echo "This installs tools to ~/clouddrive so they persist across sessions."
+        info "This installs tools to ~/clouddrive so they persist across sessions."
         echo ""
         read -p "Continue with temporary installation? (y/n): " -n 1 -r </dev/tty
         echo ""
@@ -226,14 +238,14 @@ done
 echo ""
 
 echo ""
-echo "=== VM Ready ==="
+log "=== VM Ready ==="
 echo ""
-echo "Next steps:"
+info "Next steps:"
 echo ""
 echo "1. SSH into the VM:"
 echo "   ssh ${SSH_USER}@dev-vm"
 echo ""
 echo "2. Clone dev_env and run setup:"
 echo "   git clone https://github.com/kirderfg/dev_env.git ~/dev_env"
-echo "   ~/dev_env/scripts/setup-vm.sh"
+echo "   ~/dev_env/scripts/vm/setup.sh"
 echo ""

@@ -1,10 +1,11 @@
 # Azure Cloud Shell Helpers
-# Sourced by .bashrc after running setup-cloudshell.sh
+# Sourced by .bashrc after running scripts/cloudshell/setup.sh
 
-# Aliases for dev_env scripts
-alias deploy='~/clouddrive/dev_env/scripts/deploy.sh'
-alias start-vm='~/clouddrive/dev_env/scripts/start-vm.sh'
-alias stop-vm='~/clouddrive/dev_env/scripts/stop-vm.sh'
+# Aliases for dev_env scripts (new directory structure)
+alias deploy='~/clouddrive/dev_env/scripts/azure/deploy.sh'
+alias start-vm='~/clouddrive/dev_env/scripts/azure/start.sh'
+alias stop-vm='~/clouddrive/dev_env/scripts/azure/stop.sh'
+alias redeploy-vm='~/clouddrive/dev_env/scripts/azure/redeploy.sh'
 alias ssh-vm='ssh azureuser@dev-vm'
 
 # Quick check if tools are available
@@ -50,10 +51,10 @@ cloudshell-status() {
 # Re-run bootstrap to update tools
 cloudshell-update() {
     echo "Updating Cloud Shell dev environment..."
-    if [ -f ~/clouddrive/dev_env/scripts/setup-cloudshell.sh ]; then
-        bash ~/clouddrive/dev_env/scripts/setup-cloudshell.sh
+    if [ -f ~/clouddrive/dev_env/scripts/cloudshell/setup.sh ]; then
+        bash ~/clouddrive/dev_env/scripts/cloudshell/setup.sh
     else
-        curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/setup-cloudshell.sh | bash
+        curl -fsSL https://raw.githubusercontent.com/kirderfg/dev_env/main/scripts/cloudshell/setup.sh | bash
     fi
 }
 

@@ -2,24 +2,27 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${SCRIPT_DIR}/../.env"
+SCRIPT_NAME="start-vm"
+source "$SCRIPT_DIR/../core/common.sh"
+
+ENV_FILE="${SCRIPT_DIR}/../../.env"
 
 # Load config
 if [ -f "${ENV_FILE}" ]; then
     source "${ENV_FILE}"
 else
-    echo "Error: Config file not found at ${ENV_FILE}"
-    echo "Run ./scripts/deploy.sh first."
+    error "Config file not found at ${ENV_FILE}"
+    error "Run scripts/azure/deploy.sh first."
     exit 1
 fi
 
-echo "Starting VM ${VM_NAME}..."
+log "Starting VM ${VM_NAME}..."
 az vm start \
     --resource-group "${RESOURCE_GROUP}" \
     --name "${VM_NAME}" \
     --output none
 
-echo "VM started. Getting public IP..."
+log "VM started. Getting public IP..."
 NEW_IP=$(az vm show \
     --resource-group "${RESOURCE_GROUP}" \
     --name "${VM_NAME}" \
@@ -30,10 +33,10 @@ NEW_IP=$(az vm show \
 # Update .env if IP changed
 if [ "${NEW_IP}" != "${VM_IP}" ]; then
     sed -i "s/^VM_IP=.*/VM_IP=${NEW_IP}/" "${ENV_FILE}"
-    echo "IP changed: ${VM_IP} -> ${NEW_IP}"
-    echo "Updated ${ENV_FILE}"
+    info "IP changed: ${VM_IP} -> ${NEW_IP}"
+    info "Updated ${ENV_FILE}"
 fi
 
 echo ""
-echo "VM is running at: ${NEW_IP}"
-echo "Connect with: ./scripts/ssh-connect.sh"
+log "VM is running at: ${NEW_IP}"
+info "Connect with: ssh azureuser@dev-vm (via Tailscale)"

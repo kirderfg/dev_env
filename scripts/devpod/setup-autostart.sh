@@ -5,17 +5,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVICE_FILE="$SCRIPT_DIR/devpod-autostart.service"
+SCRIPT_NAME="setup-autostart"
+source "$SCRIPT_DIR/../core/common.sh"
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-log() { echo -e "${GREEN}[setup-autostart]${NC} $1"; }
-warn() { echo -e "${YELLOW}[setup-autostart]${NC} $1"; }
+SERVICE_FILE="$SCRIPT_DIR/autostart.service"
 
 if [[ ! -f "$SERVICE_FILE" ]]; then
-    echo "Service file not found: $SERVICE_FILE"
+    error "Service file not found: $SERVICE_FILE"
     exit 1
 fi
 

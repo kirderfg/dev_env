@@ -5,73 +5,11 @@
 
 set -e
 
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log() { echo -e "${GREEN}[devpod]${NC} $1"; }
-warn() { echo -e "${YELLOW}[devpod]${NC} $1"; }
-error() { echo -e "${RED}[devpod]${NC} $1" >&2; }
-info() { echo -e "${BLUE}[devpod]${NC} $1"; }
-
-OP_TOKEN_FILE="${HOME}/.config/dev_env/op_token"
-
-# Load 1Password token and export for op CLI
-load_op_token() {
-    if [[ -f "$OP_TOKEN_FILE" ]]; then
-        export OP_SERVICE_ACCOUNT_TOKEN=$(cat "$OP_TOKEN_FILE")
-        if [[ -n "$OP_SERVICE_ACCOUNT_TOKEN" ]]; then
-            return 0
-        fi
-    fi
-    warn "1Password token not found at $OP_TOKEN_FILE"
-    warn "Secrets won't be available in devcontainer"
-    return 1
-}
-
-# Read all secrets from 1Password on the VM
-read_secrets() {
-    if ! load_op_token; then
-        return 1
-    fi
-
-    log "Reading secrets from 1Password..."
-
-    # GitHub token (for git auth and gh CLI)
-    GITHUB_TOKEN=$(op read "op://DEV_CLI/GitHub/PAT" 2>/dev/null) || true
-    if [[ -n "$GITHUB_TOKEN" ]]; then
-        log "  - GitHub token loaded"
-    fi
-
-    # Atuin credentials (shell history sync)
-    ATUIN_USERNAME=$(op read "op://DEV_CLI/Atuin/username" 2>/dev/null) || true
-    ATUIN_PASSWORD=$(op read "op://DEV_CLI/Atuin/password" 2>/dev/null) || true
-    ATUIN_KEY=$(op read "op://DEV_CLI/Atuin/key" 2>/dev/null) || true
-    if [[ -n "$ATUIN_USERNAME" ]]; then
-        log "  - Atuin credentials loaded"
-    fi
-
-    # Pet GitHub token (snippet sync)
-    PET_GITHUB_TOKEN=$(op read "op://DEV_CLI/Pet/PAT" 2>/dev/null) || true
-    if [[ -n "$PET_GITHUB_TOKEN" ]]; then
-        log "  - Pet token loaded"
-    fi
-
-    # Tailscale auth key (tagged for devpod - receive only)
-    # Use devpod_auth_key if available, fallback to regular auth_key
-    TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/devpod_auth_key" 2>/dev/null || echo "")
-    if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
-        TAILSCALE_AUTH_KEY=$(op read "op://DEV_CLI/Tailscale/auth_key" 2>/dev/null || echo "")
-    fi
-    TAILSCALE_API_KEY=$(op read "op://DEV_CLI/Tailscale/api_key" 2>/dev/null || echo "")
-    if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
-        log "  - Tailscale keys loaded"
-    fi
-
-    return 0
-}
+# Source core utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="devpod"
+source "$SCRIPT_DIR/../core/common.sh"
+source "$SCRIPT_DIR/../core/secrets.sh"
 
 # Copy Claude credentials to devpod after it's created
 copy_claude_credentials() {
@@ -168,13 +106,6 @@ build_devpod_args() {
     args_ref+=("--workspace-env" "SHELL_BOOTSTRAP_SKIP_1PASSWORD=1")
 }
 
-# Extract workspace name from repo URL
-get_workspace_name() {
-    local repo="$1"
-    # Extract last part of URL, remove .git suffix
-    echo "$repo" | sed 's|.*/||' | sed 's|\.git$||'
-}
-
 # Main logic
 main() {
     if [[ $# -eq 0 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
@@ -196,7 +127,7 @@ main() {
             local workspace_name=$(get_workspace_name "$repo")
 
             # Read secrets from 1Password
-            read_secrets
+            read_all_secrets
 
             # Build devpod command
             local devpod_args=(
@@ -236,7 +167,7 @@ main() {
             shift
 
             # Read secrets from 1Password
-            read_secrets
+            read_all_secrets
 
             # Build devpod command with recreate flag
             local devpod_args=(
