@@ -101,8 +101,21 @@ install_claude() {
 
     # Install package to a local directory (no symlinks needed)
     cd "$CLAUDE_PKG_DIR"
-    npm init -y > /dev/null 2>&1
-    npm install @anthropic-ai/claude-code --save > /dev/null 2>&1
+    npm init -y > /dev/null 2>&1 || true
+
+    echo "Running npm install (this may take a minute)..."
+    if ! npm install @anthropic-ai/claude-code --save 2>&1; then
+        echo -e "${RED}npm install failed${NC}"
+        cd - > /dev/null
+        return 1
+    fi
+
+    # Verify the package was installed
+    if [ ! -d "$CLAUDE_PKG_DIR/node_modules/@anthropic-ai/claude-code" ]; then
+        echo -e "${RED}Package directory not found after install${NC}"
+        cd - > /dev/null
+        return 1
+    fi
 
     # Create wrapper script that calls node directly
     cat > "$PERSISTENT_BIN/claude" << 'WRAPPER_EOF'
@@ -113,6 +126,7 @@ SCRIPT_DIR="$HOME/clouddrive/.npm-packages/claude-code"
 NODE_PATH="$SCRIPT_DIR/node_modules" exec node "$SCRIPT_DIR/node_modules/@anthropic-ai/claude-code/cli.js" "$@"
 WRAPPER_EOF
     chmod +x "$PERSISTENT_BIN/claude"
+    echo -e "${GREEN}Claude Code wrapper created${NC}"
 
     cd - > /dev/null
 }
