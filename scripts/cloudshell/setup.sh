@@ -98,9 +98,18 @@ if [ -x "$NODE_DIR/bin/node" ]; then
     INSTALLED_VERSION=$("$NODE_DIR/bin/node" --version 2>/dev/null)
     echo "Node.js $INSTALLED_VERSION already installed"
 else
-    mkdir -p "$NODE_DIR"
     echo "Downloading Node.js v${NODE_DIST_VERSION}..."
-    curl -sL "https://nodejs.org/dist/v${NODE_DIST_VERSION}/node-v${NODE_DIST_VERSION}-linux-x64.tar.xz" | tar -xJ -C "$NODE_DIR" --strip-components=1
+
+    # Extract to /tmp first (supports symlinks), then copy to clouddrive
+    rm -rf /tmp/node-install
+    mkdir -p /tmp/node-install
+    curl -sL "https://nodejs.org/dist/v${NODE_DIST_VERSION}/node-v${NODE_DIST_VERSION}-linux-x64.tar.xz" | tar -xJ -C /tmp/node-install --strip-components=1
+
+    # Copy to clouddrive, dereferencing symlinks
+    mkdir -p "$NODE_DIR"
+    cp -rL /tmp/node-install/* "$NODE_DIR/"
+    rm -rf /tmp/node-install
+
     echo -e "${GREEN}Node.js v${NODE_DIST_VERSION} installed to $NODE_DIR${NC}"
 fi
 
