@@ -9,6 +9,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== DevPod Container Setup ==="
 
+# Get workspace root directory
+get_workspace_root() {
+    if [[ -d "/workspaces" ]]; then
+        # DevPod puts workspaces in /workspaces/<name>
+        find /workspaces -maxdepth 1 -type d ! -name workspaces | head -1
+    else
+        # Fallback to parent of .devcontainer
+        dirname "$SCRIPT_DIR"
+    fi
+}
+
+# Run a local hook script if it exists
+# Usage: run_local_hook "setup.sh" "setup"
+run_local_hook() {
+    local hook_name="$1"
+    local description="$2"
+    local workspace_root
+    workspace_root="$(get_workspace_root)"
+
+    if [[ -z "$workspace_root" || ! -d "$workspace_root" ]]; then
+        return 0
+    fi
+
+    local hook_path="${workspace_root}/.devcontainer.local/${hook_name}"
+    if [[ -f "$hook_path" ]]; then
+        echo "Running local ${description} hook..."
+        # Source the hook so it has access to our functions and variables
+        source "$hook_path"
+    fi
+}
+
 # Persist injected secrets for shell init (so they survive shell restarts)
 persist_secrets() {
     echo "Persisting secrets..."
@@ -82,8 +113,64 @@ setup_tailscale() {
     unset TAILSCALE_AUTH_KEY TAILSCALE_API_KEY
 }
 
+# Install project dependencies
+install_project_deps() {
+    echo "Installing project dependencies..."
+
+    local workspace_root
+    workspace_root="$(get_workspace_root)"
+
+    if [[ -z "$workspace_root" || ! -d "$workspace_root" ]]; then
+        echo "Could not determine workspace root, skipping dependency installation"
+        return 0
+    fi
+
+    echo "Workspace root: $workspace_root"
+    cd "$workspace_root"
+
+    # Python dependencies - check multiple locations
+    if [[ -f "requirements.txt" ]]; then
+        echo "Installing Python dependencies from requirements.txt..."
+        pip install --upgrade pip
+        pip install -r requirements.txt
+    elif [[ -f "backend/requirements.txt" ]]; then
+        echo "Installing Python dependencies from backend/requirements.txt..."
+        pip install --upgrade pip
+        pip install -r backend/requirements.txt
+        # Also install test requirements if they exist
+        if [[ -f "backend/requirements-test.txt" ]]; then
+            pip install -r backend/requirements-test.txt
+        fi
+    fi
+
+    if [[ -f "pyproject.toml" ]]; then
+        echo "Installing Python package from pyproject.toml..."
+        pip install --upgrade pip
+        pip install -e ".[dev]" 2>/dev/null || pip install -e "." 2>/dev/null || true
+    fi
+
+    # Node dependencies
+    if [[ -f "package.json" ]]; then
+        echo "Installing Node dependencies from package.json..."
+        npm install
+    fi
+
+    # Check for frontend directory with its own package.json
+    for frontend_dir in frontend frontend-svelte client; do
+        if [[ -f "$frontend_dir/package.json" ]]; then
+            echo "Installing Node dependencies from $frontend_dir/package.json..."
+            (cd "$frontend_dir" && npm install)
+        fi
+    done
+
+    echo "Project dependencies installed"
+}
+
 # Main setup
 main() {
+    # Run pre-setup hook (before any template setup)
+    run_local_hook "pre-setup.sh" "pre-setup"
+
     persist_secrets
     setup_tailscale
 
@@ -93,6 +180,12 @@ main() {
 
     echo "Configuring tools..."
     bash "$SCRIPT_DIR/configure-tools.sh"
+
+    # Install project-specific dependencies
+    install_project_deps
+
+    # Run post-setup hook (for repo-specific setup like Stockfish)
+    run_local_hook "setup.sh" "post-setup"
 
     echo "=== Setup Complete ==="
 }
